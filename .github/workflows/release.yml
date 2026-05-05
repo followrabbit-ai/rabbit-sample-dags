@@ -1,0 +1,110 @@
+name: Release & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: release-please
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  deploy:
+    name: deploy-to-composer
+    needs: release-please
+    if: |
+      always() &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        needs.release-please.outputs.release_created == 'true'
+      )
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      ENV_NAME: ${{ vars.COMPOSER_ENV_NAME }}
+      LOCATION: ${{ vars.COMPOSER_LOCATION }}
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      BQ_DATASET: ${{ vars.BQ_DATASET }}
+      GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Mirror GitHub Variables into Airflow Variables
+        run: |
+          set -euo pipefail
+          declare -A VARS=(
+            [gcp_project_id]="$PROJECT_ID"
+            [bq_dataset]="$BQ_DATASET"
+            [gcs_bucket]="$GCS_BUCKET"
+          )
+          for key in "${!VARS[@]}"; do
+            value="${VARS[$key]}"
+            echo "::group::Setting Airflow Variable $key"
+            gcloud composer environments run "$ENV_NAME" \
+              --location "$LOCATION" \
+              variables -- set "$key" "$value"
+            echo "::endgroup::"
+          done
+
+      - name: Import DAGs into Composer
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          dag_files=(dags/*.py)
+          if [[ ${#dag_files[@]} -eq 0 ]]; then
+            echo "No DAG files found under dags/" >&2
+            exit 1
+          fi
+          for dag in "${dag_files[@]}"; do
+            echo "::group::Importing $dag"
+            gcloud composer environments storage dags import \
+              --environment "$ENV_NAME" \
+              --location "$LOCATION" \
+              --source "$dag"
+            echo "::endgroup::"
+          done
+
+      - name: Summarize deploy
+        if: always()
+        run: |
+          {
+            echo "### Cloud Composer deploy"
+            echo
+            echo "- Environment: \`$ENV_NAME\` (\`$LOCATION\`)"
+            echo "- Project: \`$PROJECT_ID\`"
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              echo "- Trigger: manual (workflow_dispatch)"
+            else
+              echo "- Trigger: release \`${{ needs.release-please.outputs.tag_name }}\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

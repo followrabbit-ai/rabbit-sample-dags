@@ -1,0 +1,5 @@
+# Local development / IDE only.
+# Cloud Composer 3 manages Airflow + provider versions itself; do NOT upload
+# this file to the Composer environment.
+apache-airflow==2.10.*
+apache-airflow-providers-google>=10.20.0
