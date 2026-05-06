@@ -96,7 +96,8 @@ versioning and triggers a Cloud Composer deploy on every release.
    (`feat:` -> minor bump, `fix:` -> patch, `feat!:` / `BREAKING CHANGE` -> major).
 2. Merging the Release PR cuts a GitHub release + tag and bumps `version.txt`.
 3. The release event gates the `deploy` job, which:
-   - authenticates with the `GCP_SA_KEY` secret,
+   - authenticates to GCP via [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
+     (no long-lived Service Account JSON),
    - mirrors the GitHub repo Variables into Airflow Variables on the
      Composer environment (via `gcloud composer environments run ... variables -- set`),
    - imports every `dags/*.py` into the environment with
@@ -106,11 +107,8 @@ versioning and triggers a Cloud Composer deploy on every release.
 
 ### Required GitHub Secrets
 
-Settings -> Secrets and variables -> Actions -> Secrets:
-
-| Name | Value |
-| --- | --- |
-| `GCP_SA_KEY` | JSON key for the deploy service account (see roles below). |
+None. Authentication uses Workload Identity Federation, so no Service Account
+JSON or other long-lived credential needs to live in repo Secrets.
 
 ### Required GitHub Variables
 
@@ -123,31 +121,61 @@ Settings -> Secrets and variables -> Actions -> Variables:
 | `COMPOSER_LOCATION` | `us-central1` |
 | `BQ_DATASET` | `airflow_demo` |
 | `GCS_BUCKET` | `my-gcp-project-airflow-demo-exports` |
+| `GCP_WIF_PROVIDER` | `projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>` |
+| `GCP_DEPLOY_SA` | `composer-sa@<project>.iam.gserviceaccount.com` (created in the infrastructure repo) |
 
-### Deploy service account roles
+### Workload Identity Federation setup
 
-The SA whose JSON you put in `GCP_SA_KEY` needs:
-
-- `roles/composer.user` on the project (to call
-  `gcloud composer environments run` and `... storage dags import`).
-- `roles/iam.serviceAccountUser` on the Composer environment's runtime
-  service account (required by `composer environments run`).
-
-Grant them with:
+One-time setup so the GitHub repo can impersonate the Composer deploy SA
+without any stored credentials. The deploy SA (`composer-sa`) is created in
+the infrastructure repo; the steps below set up the WIF pool/provider and
+bind it to that SA.
 
 ```bash
-DEPLOY_SA=<deploy-sa>@$PROJECT_ID.iam.gserviceaccount.com
-RUNTIME_SA="$(gcloud composer environments describe "$ENV" \
-    --location "$LOC" --format='value(config.nodeConfig.serviceAccount)')"
+PROJECT_ID=<your-project>
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+POOL=github-pool
+PROVIDER=github-provider
+REPO=followrabbit-ai/rabbit-sample-dags
+DEPLOY_SA=composer-sa@$PROJECT_ID.iam.gserviceaccount.com
 
+# 1. Grant the deploy SA the roles it needs (the SA itself is created by infra).
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$DEPLOY_SA" \
     --role="roles/composer.user"
 
+RUNTIME_SA="$(gcloud composer environments describe "$ENV" \
+    --location "$LOC" --format='value(config.nodeConfig.serviceAccount)')"
 gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
     --member="serviceAccount:$DEPLOY_SA" \
     --role="roles/iam.serviceAccountUser"
+
+# 2. Create the WIF pool + GitHub OIDC provider (skip if already created).
+gcloud iam workload-identity-pools create "$POOL" \
+    --project="$PROJECT_ID" --location=global \
+    --display-name="GitHub Actions"
+
+gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" \
+    --project="$PROJECT_ID" --location=global \
+    --workload-identity-pool="$POOL" \
+    --display-name="GitHub" \
+    --issuer-uri="https://token.actions.githubusercontent.com" \
+    --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+    --attribute-condition="assertion.repository_owner == 'followrabbit-ai'"
+
+# 3. Allow the GitHub repo to impersonate the deploy SA.
+gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
+    --project="$PROJECT_ID" \
+    --role="roles/iam.workloadIdentityUser" \
+    --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/attribute.repository/$REPO"
+
+# 4. Print the value to use for the GCP_WIF_PROVIDER GitHub Variable.
+echo "projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/providers/$PROVIDER"
 ```
+
+The `attribute-condition` (`repository_owner == 'followrabbit-ai'`) plus the
+`attribute.repository`-scoped principalSet ensure only this specific repo
+can impersonate the SA, even if the pool is reused for other org repos.
 
 The workflow targets a GitHub Environment named `production`, which lets you
 add manual approval / branch protection. Remove the `environment: production`
