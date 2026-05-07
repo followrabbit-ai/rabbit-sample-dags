@@ -100,8 +100,8 @@ versioning and triggers a Cloud Composer deploy on every release.
      (no long-lived Service Account JSON),
    - mirrors the GitHub repo Variables into Airflow Variables on the
      Composer environment (via `gcloud composer environments run ... variables -- set`),
-   - imports every `dags/*.py` into the environment with
-     `gcloud composer environments storage dags import`.
+   - imports the `dags/` directory into the environment with
+     `gcloud composer environments storage dags import --source=dags/`.
 4. The workflow can also be triggered manually (`workflow_dispatch`) to
    redeploy `main` without cutting a release.
 
@@ -116,66 +116,30 @@ Settings -> Secrets and variables -> Actions -> Variables:
 
 | Name | Example |
 | --- | --- |
-| `GCP_PROJECT_ID` | `my-gcp-project` |
-| `COMPOSER_ENV_NAME` | `composer-demo` |
+| `GCP_PROJECT_ID` | `rbt-sandbox-stewart` |
+| `COMPOSER_ENV_NAME` | `rabbit-airflow-demo` |
 | `COMPOSER_LOCATION` | `us-central1` |
 | `BQ_DATASET` | `airflow_demo` |
-| `GCS_BUCKET` | `my-gcp-project-airflow-demo-exports` |
-| `GCP_WIF_PROVIDER` | `projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>` |
-| `GCP_DEPLOY_SA` | `composer-sa@<project>.iam.gserviceaccount.com` (created in the infrastructure repo) |
+| `GCS_BUCKET` | `us-central1-rabbit-airflow--aaefe57c-bucket` |
+| `GCP_WIF_PROVIDER` | `projects/270391591458/locations/global/workloadIdentityPools/github-actions/providers/github` |
+| `GCP_COMPOSER_SA` | `composer-sa@rbt-sandbox-stewart.iam.gserviceaccount.com` |
 
 ### Workload Identity Federation setup
 
-One-time setup so the GitHub repo can impersonate the Composer deploy SA
-without any stored credentials. The deploy SA (`composer-sa`) is created in
-the infrastructure repo; the steps below set up the WIF pool/provider and
-bind it to that SA.
+There is **no per-repo WIF setup** to do. The Workload Identity Pool
+(`github-actions`) and OIDC provider (`github`) are centrally managed in the
+[`gcp-foundation`](https://github.com/followrabbit-ai/gcp-foundation)
+infrastructure repo (under `org_core/`) and shared across all
+`followrabbit-ai/*` repos. The pool's `attribute_condition` restricts token
+exchange to GitHub repos owned by `followrabbit-ai`, and a per-repo
+`principalSet://...attribute.repository/followrabbit-ai/rabbit-sample-dags`
+binding on `composer-sa` ensures only this repo can impersonate the SA.
 
-```bash
-PROJECT_ID=<your-project>
-PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
-POOL=github-pool
-PROVIDER=github-provider
-REPO=followrabbit-ai/rabbit-sample-dags
-DEPLOY_SA=composer-sa@$PROJECT_ID.iam.gserviceaccount.com
-
-# 1. Grant the deploy SA the roles it needs (the SA itself is created by infra).
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:$DEPLOY_SA" \
-    --role="roles/composer.user"
-
-RUNTIME_SA="$(gcloud composer environments describe "$ENV" \
-    --location "$LOC" --format='value(config.nodeConfig.serviceAccount)')"
-gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
-    --member="serviceAccount:$DEPLOY_SA" \
-    --role="roles/iam.serviceAccountUser"
-
-# 2. Create the WIF pool + GitHub OIDC provider (skip if already created).
-gcloud iam workload-identity-pools create "$POOL" \
-    --project="$PROJECT_ID" --location=global \
-    --display-name="GitHub Actions"
-
-gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" \
-    --project="$PROJECT_ID" --location=global \
-    --workload-identity-pool="$POOL" \
-    --display-name="GitHub" \
-    --issuer-uri="https://token.actions.githubusercontent.com" \
-    --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
-    --attribute-condition="assertion.repository_owner == 'followrabbit-ai'"
-
-# 3. Allow the GitHub repo to impersonate the deploy SA.
-gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
-    --project="$PROJECT_ID" \
-    --role="roles/iam.workloadIdentityUser" \
-    --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/attribute.repository/$REPO"
-
-# 4. Print the value to use for the GCP_WIF_PROVIDER GitHub Variable.
-echo "projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/providers/$PROVIDER"
-```
-
-The `attribute-condition` (`repository_owner == 'followrabbit-ai'`) plus the
-`attribute.repository`-scoped principalSet ensure only this specific repo
-can impersonate the SA, even if the pool is reused for other org repos.
+`composer-sa` is the same service account that runs the Composer environment,
+so `composer environments run` works because the SA has
+`roles/iam.serviceAccountUser` on itself (also managed in `gcp-foundation`).
+Adding a new sample-DAG repo to this pattern is just a one-line change in
+that infrastructure repo.
 
 The workflow targets a GitHub Environment named `production`, which lets you
 add manual approval / branch protection. Remove the `environment: production`

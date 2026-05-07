@@ -6,9 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -19,6 +17,9 @@ jobs:
     name: release-please
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -40,27 +41,30 @@ jobs:
       )
     runs-on: ubuntu-latest
     environment: production
-    env:
-      ENV_NAME: ${{ vars.COMPOSER_ENV_NAME }}
-      LOCATION: ${{ vars.COMPOSER_LOCATION }}
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      BQ_DATASET: ${{ vars.BQ_DATASET }}
-      GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: Authenticate to GCP via WIF
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          service_account: ${{ vars.GCP_COMPOSER_SA }}
 
       - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
 
       - name: Mirror GitHub Variables into Airflow Variables
+        env:
+          ENV_NAME: ${{ vars.COMPOSER_ENV_NAME }}
+          LOCATION: ${{ vars.COMPOSER_LOCATION }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          BQ_DATASET: ${{ vars.BQ_DATASET }}
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
         run: |
           set -euo pipefail
           declare -A VARS=(
@@ -79,21 +83,11 @@ jobs:
 
       - name: Import DAGs into Composer
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-          dag_files=(dags/*.py)
-          if [[ ${#dag_files[@]} -eq 0 ]]; then
-            echo "No DAG files found under dags/" >&2
-            exit 1
-          fi
-          for dag in "${dag_files[@]}"; do
-            echo "::group::Importing $dag"
-            gcloud composer environments storage dags import \
-              --environment "$ENV_NAME" \
-              --location "$LOCATION" \
-              --source "$dag"
-            echo "::endgroup::"
-          done
+          gcloud composer environments storage dags import \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --location="${{ vars.COMPOSER_LOCATION }}" \
+            --environment="${{ vars.COMPOSER_ENV_NAME }}" \
+            --source=dags/
 
       - name: Summarize deploy
         if: always()
@@ -101,8 +95,9 @@ jobs:
           {
             echo "### Cloud Composer deploy"
             echo
-            echo "- Environment: \`$ENV_NAME\` (\`$LOCATION\`)"
-            echo "- Project: \`$PROJECT_ID\`"
+            echo "- Environment: \`${{ vars.COMPOSER_ENV_NAME }}\` (\`${{ vars.COMPOSER_LOCATION }}\`)"
+            echo "- Project: \`${{ vars.GCP_PROJECT_ID }}\`"
+            echo "- Service account: \`${{ vars.GCP_COMPOSER_SA }}\`"
             if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
               echo "- Trigger: manual (workflow_dispatch)"
             else
