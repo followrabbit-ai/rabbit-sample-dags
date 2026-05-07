@@ -14,7 +14,7 @@ public dataset. Three BigQuery tasks chained in series:
 | --- | --- | --- |
 | `stage_trips` | `BigQueryInsertJobOperator` | `CREATE OR REPLACE TABLE` of the last 30 days of `bikeshare_trips` into `stg_bikeshare_trips`. |
 | `aggregate_daily_rides` | `BigQueryInsertJobOperator` | Aggregates the staging table into `mart_daily_rides` (rides, avg duration, unique bikes per day). |
-| `export_to_gcs` | `BigQueryToGCSOperator` | Exports `mart_daily_rides` to `gs://<bucket>/exports/mart_daily_rides/<ds>/part-*.parquet`. |
+| `export_to_gcs` | `BigQueryToGCSOperator` | Exports `mart_daily_rides` to `gs://<bucket>/bikeshare-extract/<ds>/part-*.parquet`. |
 
 All three operators run with `deferrable=True` to free worker slots while
 BigQuery jobs run.
@@ -206,7 +206,7 @@ gcloud composer environments run "$ENV" --location "$LOC" \
 bq query --use_legacy_sql=false \
     "SELECT * FROM \`$PROJECT_ID.airflow_demo.mart_daily_rides\` ORDER BY ride_date DESC LIMIT 10"
 
-gcloud storage ls "gs://$PROJECT_ID-airflow-demo-exports/exports/mart_daily_rides/"
+gcloud storage ls "gs://$GCS_BUCKET/bikeshare-extract/"
 ```
 
 ## Local development
