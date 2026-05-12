@@ -173,14 +173,28 @@ bq query --use_legacy_sql=false \
 gcloud storage ls "gs://$GCS_BUCKET/bikeshare-extract/"
 ```
 
+## Continuous validation
+
+[`.github/workflows/validate.yml`](.github/workflows/validate.yml) runs on
+every pull request against `main` (and on `workflow_dispatch`) with two jobs:
+
+| Job | What it does |
+| --- | --- |
+| `ruff` | `ruff check dags` + `ruff format --check dags` |
+| `parse-dags` | Installs `requirements.txt` and parses every DAG via Airflow's `DagBag`, failing the build on any import error |
+
+This is independent of `release.yml` — no GCP credentials needed, so it
+runs on PRs from forks as well.
+
 ## Local development
 
 Composer 3 ships Airflow 2.x with `apache-airflow-providers-google` preinstalled,
 so `requirements.txt` here is **only for local IDE/lint**:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate  # use Python 3.11 to match Composer 3
 pip install -r requirements.txt
+ruff check dags && ruff format --check dags
 python -c "from airflow.models import DagBag; \
     db = DagBag('dags', include_examples=False); \
     assert not db.import_errors, db.import_errors; print('DAGs OK')"

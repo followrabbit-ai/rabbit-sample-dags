@@ -1,0 +1,63 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: ruff check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check
+          src: dags
+
+      - name: ruff format --check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check
+          src: dags
+
+  parse-dags:
+    name: parse-dags
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Airflow + providers
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Parse DAGs with DagBag
+        run: |
+          python - <<'PY'
+          import sys
+          from airflow.models import DagBag
+
+          dag_bag = DagBag("dags", include_examples=False)
+          if dag_bag.import_errors:
+              for path, err in dag_bag.import_errors.items():
+                  print(f"::error file={path}::{err}")
+              sys.exit(1)
+          print(f"Parsed {len(dag_bag.dags)} DAG(s): {sorted(dag_bag.dag_ids)}")
+          PY
