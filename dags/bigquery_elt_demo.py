@@ -43,6 +43,11 @@ STAGE_TABLE = f"{PROJECT}.{DATASET}.stg_bikeshare_trips"
 MART_TABLE = f"{PROJECT}.{DATASET}.mart_daily_rides"
 
 STAGE_SQL = f"""
+DECLARE max_dt DATE DEFAULT (
+  SELECT DATE(MAX(start_time))
+  FROM `bigquery-public-data.austin_bikeshare.bikeshare_trips`
+);
+
 CREATE OR REPLACE TABLE `{STAGE_TABLE}` AS
 SELECT
   trip_id,
@@ -55,9 +60,7 @@ SELECT
   end_station_id,
   end_station_name
 FROM `bigquery-public-data.austin_bikeshare.bikeshare_trips`
-WHERE DATE(start_time)
-  BETWEEN DATE_SUB(DATE('{{{{ ds }}}}'), INTERVAL 30 DAY)
-      AND DATE('{{{{ ds }}}}')
+WHERE DATE(start_time) BETWEEN DATE_SUB(max_dt, INTERVAL 30 DAY) AND max_dt
 """
 
 AGGREGATE_SQL = f"""
@@ -117,7 +120,7 @@ def bigquery_elt_demo() -> None:
         task_id="export_to_gcs",
         source_project_dataset_table=MART_TABLE,
         destination_cloud_storage_uris=[
-            f"gs://{BUCKET}/exports/mart_daily_rides/{{{{ ds }}}}/part-*.parquet",
+            f"gs://{BUCKET}/bikeshare-extract/{{{{ ds }}}}/part-*.parquet",
         ],
         export_format="PARQUET",
         compression="SNAPPY",
