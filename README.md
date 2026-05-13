@@ -103,6 +103,13 @@ optimizer API before `BigQueryHook.insert_job` runs. The DAG code in
   loads plugins from the environment bucket’s `plugins/` prefix (synced by
   the deploy workflow), not from the site-packages layout of arbitrary wheels.
 
+### Secrets (Rabbit API key)
+
+The Rabbit API key is **not** committed to this repository, stored in GitHub
+Actions variables, or read by the sample DAG. Operators create the
+**`rabbit_api`** Airflow connection manually (CLI or UI) in each Composer
+environment. The deploy workflow does not create or update Airflow connections.
+
 ### One-time Airflow Connection and Variable
 
 Use the same `ENV` / `LOC` pattern as [Configure Airflow Variables](#configure-airflow-variables).
@@ -181,8 +188,13 @@ versioning and triggers a Cloud Composer deploy on every release.
 
 ### Required GitHub Secrets
 
-None. Authentication uses Workload Identity Federation, so no Service Account
-JSON or other long-lived credential needs to live in repo Secrets.
+None for GCP deploy: authentication uses Workload Identity Federation, so no
+Service Account JSON or other long-lived GCP credential needs to live in repo
+Secrets.
+
+The Rabbit optimizer API key is also **not** a GitHub Secret for this repo; it
+lives only in the Composer Airflow connection `rabbit_api` (see
+[Rabbit BQ Optimizer plugin (C1)](#rabbit-bq-optimizer-plugin-c1)).
 
 ### Required GitHub Variables
 
