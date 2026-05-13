@@ -60,11 +60,14 @@ jobs:
 
       - name: Import DAGs into Composer
         run: |
-          gcloud composer environments storage dags import \
+          set -euo pipefail
+          DAG_PREFIX=$(gcloud composer environments describe \
+            "${{ vars.COMPOSER_ENV_NAME }}" \
             --project="${{ vars.GCP_PROJECT_ID }}" \
             --location="${{ vars.COMPOSER_LOCATION }}" \
-            --environment="${{ vars.COMPOSER_ENV_NAME }}" \
-            --source=dags/
+            --format='value(config.dagGcsPrefix)')
+          echo "Uploading dags/* -> $DAG_PREFIX/"
+          gcloud storage cp --recursive dags/* "$DAG_PREFIX/"
 
       - name: Summarize deploy
         if: always()
