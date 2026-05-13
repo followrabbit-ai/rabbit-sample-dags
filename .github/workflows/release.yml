@@ -24,7 +24,7 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           config-file: release-please-config.json
@@ -57,29 +57,6 @@ jobs:
         uses: google-github-actions/setup-gcloud@v3
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
-
-      - name: Mirror GitHub Variables into Airflow Variables
-        env:
-          ENV_NAME: ${{ vars.COMPOSER_ENV_NAME }}
-          LOCATION: ${{ vars.COMPOSER_LOCATION }}
-          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-          BQ_DATASET: ${{ vars.BQ_DATASET }}
-          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
-        run: |
-          set -euo pipefail
-          declare -A VARS=(
-            [gcp_project_id]="$PROJECT_ID"
-            [bq_dataset]="$BQ_DATASET"
-            [gcs_bucket]="$GCS_BUCKET"
-          )
-          for key in "${!VARS[@]}"; do
-            value="${VARS[$key]}"
-            echo "::group::Setting Airflow Variable $key"
-            gcloud composer environments run "$ENV_NAME" \
-              --location "$LOCATION" \
-              variables -- set "$key" "$value"
-            echo "::endgroup::"
-          done
 
       - name: Import DAGs into Composer
         run: |

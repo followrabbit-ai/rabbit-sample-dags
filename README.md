@@ -60,10 +60,10 @@ BigQuery jobs run.
 
 ## Configure Airflow Variables
 
-The DAG reads three Airflow Variables: `gcp_project_id`, `bq_dataset`, and
-`gcs_bucket`. The recommended way to set them is the GitHub Actions deploy
-described below, which mirrors the matching GitHub repo Variables into the
-Composer environment on every release. To set them by hand:
+The DAG reads three Airflow Variables — `gcp_project_id`, `bq_dataset`, and
+`gcs_bucket`. They're environment-specific state owned by Airflow, so set them
+once per Composer environment with `gcloud` or the Airflow UI (Admin →
+Variables):
 
 ```bash
 ENV=<your-composer-env>
@@ -98,10 +98,13 @@ versioning and triggers a Cloud Composer deploy on every release.
 3. The release event gates the `deploy` job, which:
    - authenticates to GCP via [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
      (no long-lived Service Account JSON),
-   - mirrors the GitHub repo Variables into Airflow Variables on the
-     Composer environment (via `gcloud composer environments run ... variables -- set`),
    - imports the `dags/` directory into the environment with
      `gcloud composer environments storage dags import --source=dags/`.
+
+   Airflow Variables (`gcp_project_id`, `bq_dataset`, `gcs_bucket`) are owned
+   by Airflow itself — set them once per environment (see
+   [Configure Airflow Variables](#configure-airflow-variables)) rather than
+   re-mirroring on every deploy.
 4. The workflow can also be triggered manually (`workflow_dispatch`) to
    redeploy `main` without cutting a release.
 
@@ -119,8 +122,6 @@ Settings -> Secrets and variables -> Actions -> Variables:
 | `GCP_PROJECT_ID` | `rbt-sandbox-stewart` |
 | `COMPOSER_ENV_NAME` | `rabbit-airflow-demo` |
 | `COMPOSER_LOCATION` | `us-central1` |
-| `BQ_DATASET` | `airflow_demo` |
-| `GCS_BUCKET` | `us-central1-rabbit-airflow--aaefe57c-bucket` |
 | `GCP_WIF_PROVIDER` | `projects/270391591458/locations/global/workloadIdentityPools/github-actions/providers/github` |
 | `GCP_COMPOSER_SA` | `composer-sa@rbt-sandbox-stewart.iam.gserviceaccount.com` |
 
@@ -135,11 +136,10 @@ exchange to GitHub repos owned by `followrabbit-ai`, and a per-repo
 `principalSet://...attribute.repository/followrabbit-ai/rabbit-sample-dags`
 binding on `composer-sa` ensures only this repo can impersonate the SA.
 
-`composer-sa` is the same service account that runs the Composer environment,
-so `composer environments run` works because the SA has
-`roles/iam.serviceAccountUser` on itself (also managed in `gcp-foundation`).
-Adding a new sample-DAG repo to this pattern is just a one-line change in
-that infrastructure repo.
+`composer-sa` only needs `roles/composer.user` (to discover the environment)
+plus `roles/storage.objectAdmin` on the Composer DAGs bucket (to upload DAG
+files) — both managed in `gcp-foundation`. Adding a new sample-DAG repo to
+this pattern is just a one-line change in that infrastructure repo.
 
 The workflow targets a GitHub Environment named `production`, which lets you
 add manual approval / branch protection. Remove the `environment: production`
@@ -173,14 +173,28 @@ bq query --use_legacy_sql=false \
 gcloud storage ls "gs://$GCS_BUCKET/bikeshare-extract/"
 ```
 
+## Continuous validation
+
+[`.github/workflows/validate.yml`](.github/workflows/validate.yml) runs on
+every pull request against `main` (and on `workflow_dispatch`) with two jobs:
+
+| Job | What it does |
+| --- | --- |
+| `ruff` | `ruff check dags` + `ruff format --check dags` |
+| `parse-dags` | Installs `requirements.txt` and parses every DAG via Airflow's `DagBag`, failing the build on any import error |
+
+This is independent of `release.yml` — no GCP credentials needed, so it
+runs on PRs from forks as well.
+
 ## Local development
 
 Composer 3 ships Airflow 2.x with `apache-airflow-providers-google` preinstalled,
 so `requirements.txt` here is **only for local IDE/lint**:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate  # use Python 3.11 to match Composer 3
 pip install -r requirements.txt
+ruff check dags && ruff format --check dags
 python -c "from airflow.models import DagBag; \
     db = DagBag('dags', include_examples=False); \
     assert not db.import_errors, db.import_errors; print('DAGs OK')"
