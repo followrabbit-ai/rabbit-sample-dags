@@ -96,6 +96,10 @@ optimizer API before `BigQueryHook.insert_job` runs. The DAG code in
 `BigQueryHook` so job configurations are passed through Rabbit before they are
 sent to BigQuery.
 
+The integration into this repository (Composer PyPI dependency, GitHub Actions
+deploy of `plugins/` and `requirements-composer.txt`, and documentation) was
+added in **[PR #8](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/8)**—see that pull request for the concrete file and workflow changes.
+
 ### Why both PyPI and `plugins/`?
 
 - **`rabbit-bq-job-optimizer` (PyPI)** — Python client library (`rabbit_bq_job_optimizer`).
