@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.2.0...rabbit-sample-dags-v0.2.1) (2026-05-13)
+
+
+### Bug Fixes
+
+* **ci:** correct DAG upload path in Composer deploy ([53830e3](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/53830e3542a0184ca8b2b468b785006dc9fb4ef6))
+* **ci:** correct DAG upload path in Composer deploy ([6f84fc6](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/6f84fc69b32142e45db95eb002bc11ff7dbd2e9f))
+
 ## [0.2.0](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.1.0...rabbit-sample-dags-v0.2.0) (2026-05-13)
 
 
