@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.2.1...rabbit-sample-dags-v0.2.2) (2026-05-13)
+
+
+### Bug Fixes
+
+* **ci:** activate uv-managed venv for parse-dags install ([2a752c1](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/2a752c1c1f53182caae5634328c0ceab16d34d3e))
+
 ## [0.2.1](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.2.0...rabbit-sample-dags-v0.2.1) (2026-05-13)
 
 
