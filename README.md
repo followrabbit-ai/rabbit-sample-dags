@@ -200,29 +200,37 @@ lives only in the Composer Airflow connection `rabbit_api` (see
 
 Settings -> Secrets and variables -> Actions -> Variables:
 
-| Name | Example |
+| Name | Example (replace with your values) |
 | --- | --- |
-| `GCP_PROJECT_ID` | `rbt-sandbox-stewart` |
-| `COMPOSER_ENV_NAME` | `rabbit-airflow-demo` |
-| `COMPOSER_LOCATION` | `us-central1` |
-| `GCP_WIF_PROVIDER` | `projects/270391591458/locations/global/workloadIdentityPools/github-actions/providers/github` |
-| `GCP_COMPOSER_SA` | `composer-sa@rbt-sandbox-stewart.iam.gserviceaccount.com` |
+| `GCP_PROJECT_ID` | `YOUR_GCP_PROJECT_ID` |
+| `COMPOSER_ENV_NAME` | `YOUR_COMPOSER_ENVIRONMENT_NAME` |
+| `COMPOSER_LOCATION` | `YOUR_REGION` (e.g. `us-central1`) |
+| `GCP_WIF_PROVIDER` | `projects/YOUR_WIF_HOST_PROJECT_NUMBER/locations/global/workloadIdentityPools/YOUR_POOL_ID/providers/YOUR_PROVIDER_ID` |
+| `GCP_COMPOSER_SA` | `YOUR_DEPLOY_SA@YOUR_GCP_PROJECT_ID.iam.gserviceaccount.com` |
 
 ### Workload Identity Federation setup
 
-There is **no per-repo WIF setup** to do. The Workload Identity Pool
-(`github-actions`) and OIDC provider (`github`) are centrally managed in the
-[`gcp-foundation`](https://github.com/followrabbit-ai/gcp-foundation)
-infrastructure repo (under `org_core/`) and shared across all
-`followrabbit-ai/*` repos. The pool's `attribute_condition` restricts token
-exchange to GitHub repos owned by `followrabbit-ai`, and a per-repo
-`principalSet://...attribute.repository/followrabbit-ai/rabbit-sample-dags`
-binding on `composer-sa` ensures only this repo can impersonate the SA.
+There is **no WIF pool creation inside this repository** — your platform team
+provisions the Workload Identity Pool, OIDC provider, and IAM bindings (often
+in a separate infrastructure repository). A typical pattern:
 
-`composer-sa` only needs `roles/composer.user` (to discover the environment)
-plus `roles/storage.objectAdmin` on the Composer DAGs bucket (to upload DAG
-files) — both managed in `gcp-foundation`. Adding a new sample-DAG repo to
-this pattern is just a one-line change in that infrastructure repo.
+- The pool’s `attribute_condition` restricts which GitHub organizations or
+  repositories may exchange an OIDC token for a Google access token.
+- A **per-repository** principal set (for example scoped to
+  `YOUR_GITHUB_ORG/YOUR_REPO_NAME`) is bound to **`GCP_COMPOSER_SA`** so only
+  this repo’s GitHub Actions workflows can impersonate the deploy service
+  account.
+
+The deploy service account usually needs at least **`roles/composer.user`**
+(to resolve the Composer environment and `dagGcsPrefix`) plus
+**`roles/storage.objectAdmin`** on the Composer environment bucket (to upload
+DAGs and plugins). If you use **`gcloud composer environments update`** in CI
+to install PyPI packages, that account also needs permission to **update** the
+environment (for example a role that includes **`composer.environments.update`**
+— see [Composer access control](https://cloud.google.com/composer/docs/how-to/access-control)).
+
+Adding another GitHub repo to the same pattern is an infrastructure change
+(WIF provider / IAM bindings), not a change to this DAG repo alone.
 
 The workflow targets a GitHub Environment named `production`, which lets you
 add manual approval / branch protection. Remove the `environment: production`
