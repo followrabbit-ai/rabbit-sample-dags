@@ -42,9 +42,10 @@ jobs:
           enable-cache: true
           cache-dependency-glob: requirements.txt
           python-version: "3.11"
+          activate-environment: true
 
       - name: Install Airflow + providers
-        run: uv pip install --system -r requirements.txt
+        run: uv pip install -r requirements.txt
 
       - name: Parse DAGs with DagBag
         run: |
