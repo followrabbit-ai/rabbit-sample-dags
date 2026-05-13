@@ -184,7 +184,10 @@ every pull request against `main` (and on `workflow_dispatch`) with two jobs:
 | `parse-dags` | Installs `requirements.txt` and parses every DAG via Airflow's `DagBag`, failing the build on any import error |
 
 This is independent of `release.yml` — no GCP credentials needed, so it
-runs on PRs from forks as well.
+runs on PRs from forks as well. `parse-dags` uses
+[`astral-sh/setup-uv`](https://github.com/astral-sh/setup-uv) with its
+built-in CI cache, so the Airflow install typically runs in seconds rather
+than the ~90s a cold `pip install` takes.
 
 ## Local development
 
@@ -192,8 +195,10 @@ Composer 3 ships Airflow 2.x with `apache-airflow-providers-google` preinstalled
 so `requirements.txt` here is **only for local IDE/lint**:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate  # use Python 3.11 to match Composer 3
-pip install -r requirements.txt
+# Install uv once: https://docs.astral.sh/uv/getting-started/installation/
+uv venv --python 3.11   # use Python 3.11 to match Composer 3
+source .venv/bin/activate
+uv pip install -r requirements.txt
 ruff check dags && ruff format --check dags
 python -c "from airflow.models import DagBag; \
     db = DagBag('dags', include_examples=False); \
