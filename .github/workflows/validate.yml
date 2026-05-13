@@ -31,6 +31,18 @@ jobs:
           args: format --check
           src: dags
 
+      - name: ruff check plugins
+        uses: astral-sh/ruff-action@v4.0.0
+        with:
+          args: check
+          src: plugins
+
+      - name: ruff format --check plugins
+        uses: astral-sh/ruff-action@v4.0.0
+        with:
+          args: format --check
+          src: plugins
+
   parse-dags:
     name: parse-dags
     runs-on: ubuntu-latest

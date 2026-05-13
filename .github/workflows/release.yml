@@ -46,6 +46,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Authenticate to GCP via WIF
         uses: google-github-actions/auth@v3
@@ -58,7 +60,44 @@ jobs:
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
 
-      - name: Import DAGs into Composer
+      - name: Detect Composer PyPI changes
+        id: pypi_diff
+        run: |
+          set -euo pipefail
+          # gcloud composer environments update --update-pypi-packages-from-file
+          # rebuilds the worker image (~15-25 min). Only run when the file
+          # actually changed since the previous release tag.
+          current_tag=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+          if [[ -n "$current_tag" ]]; then
+            prev_tag=$(git tag --sort=-version:refname | grep -vx "$current_tag" | head -n 1 || true)
+          else
+            prev_tag=$(git tag --sort=-version:refname | head -n 1 || true)
+          fi
+          if [[ -z "$prev_tag" ]]; then
+            echo "No previous tag found; will sync PyPI deps."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "reason=no previous tag" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$prev_tag" HEAD -- requirements-composer.txt; then
+            echo "requirements-composer.txt unchanged since $prev_tag; skipping PyPI sync."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "reason=unchanged since $prev_tag" >> "$GITHUB_OUTPUT"
+          else
+            echo "requirements-composer.txt changed since $prev_tag; will sync."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "reason=changed since $prev_tag" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sync Composer PyPI deps
+        if: steps.pypi_diff.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          echo "Applying requirements-composer.txt to ${{ vars.COMPOSER_ENV_NAME }} (may take 15-25 min)..."
+          gcloud composer environments update "${{ vars.COMPOSER_ENV_NAME }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --location="${{ vars.COMPOSER_LOCATION }}" \
+            --update-pypi-packages-from-file=requirements-composer.txt
+
+      - name: Import DAGs and plugins into Composer
         run: |
           set -euo pipefail
           DAG_PREFIX=$(gcloud composer environments describe \
@@ -66,8 +105,11 @@ jobs:
             --project="${{ vars.GCP_PROJECT_ID }}" \
             --location="${{ vars.COMPOSER_LOCATION }}" \
             --format='value(config.dagGcsPrefix)')
+          PLUGIN_PREFIX="${DAG_PREFIX%/dags}/plugins"
           echo "Uploading dags/* -> $DAG_PREFIX/"
           gcloud storage cp --recursive dags/* "$DAG_PREFIX/"
+          echo "Uploading plugins/* -> $PLUGIN_PREFIX/"
+          gcloud storage cp --recursive plugins/* "$PLUGIN_PREFIX/"
 
       - name: Summarize deploy
         if: always()
@@ -78,6 +120,11 @@ jobs:
             echo "- Environment: \`${{ vars.COMPOSER_ENV_NAME }}\` (\`${{ vars.COMPOSER_LOCATION }}\`)"
             echo "- Project: \`${{ vars.GCP_PROJECT_ID }}\`"
             echo "- Service account: \`${{ vars.GCP_COMPOSER_SA }}\`"
+            if [[ "${{ steps.pypi_diff.outputs.changed }}" == "true" ]]; then
+              echo "- PyPI deps: re-synced from \`requirements-composer.txt\` (${{ steps.pypi_diff.outputs.reason }})"
+            else
+              echo "- PyPI deps: skipped (${{ steps.pypi_diff.outputs.reason }})"
+            fi
             if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
               echo "- Trigger: manual (workflow_dispatch)"
             else
