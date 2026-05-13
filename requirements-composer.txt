@@ -1,0 +1,8 @@
+# PyPI packages installed into the Cloud Composer environment.
+# Applied by .github/workflows/release.yml when this file changes, via:
+#   gcloud composer environments update ... --update-pypi-packages-from-file=requirements-composer.txt
+#
+# Keep pins exact: every change here triggers a Composer environment rebuild
+# that takes 15-25 minutes.
+
+rabbit-bq-job-optimizer==0.1.16

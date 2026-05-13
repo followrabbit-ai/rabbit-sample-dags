@@ -79,8 +79,74 @@ gcloud composer environments run "$ENV" --location "$LOC" \
     variables -- set gcs_bucket "$PROJECT_ID-airflow-demo-exports"
 ```
 
-The default `google_cloud_default` connection that ships with Composer is used,
-so no additional connection setup is required.
+The sample DAG uses the default `google_cloud_default` connection for BigQuery.
+If you enable the Rabbit BQ Optimizer plugin below, add the separate
+`rabbit_api` connection there (the plugin does not reuse
+`google_cloud_default`).
+
+## Rabbit BQ Optimizer plugin (C1)
+
+This repo vendors the [Rabbit BigQuery Job Optimizer Airflow plugin](https://github.com/followrabbit-ai/bq-job-optimizer-airflow-plugin)
+so BigQuery jobs submitted through Airflow can be routed through Rabbit’s
+optimizer API before `BigQueryHook.insert_job` runs. The DAG code in
+`bigquery_elt_demo` does not change; the plugin monkey-patches
+`BigQueryHook` at Airflow startup.
+
+### Why both PyPI and `plugins/`?
+
+- **`rabbit-bq-job-optimizer` (PyPI)** — Python client library (`rabbit_bq_job_optimizer`).
+  Installing it on the Composer environment makes `import rabbit_bq_job_optimizer`
+  succeed in the worker image.
+- **`plugins/rabbit_bq_optimizer_plugin.py`** — Airflow plugin shim: subclasses
+  `AirflowPlugin`, loads the `rabbit_api` connection and
+  `rabbit_bq_optimizer_config` variable, and applies the hook patch. Composer
+  loads plugins from the environment bucket’s `plugins/` prefix (synced by
+  the deploy workflow), not from the site-packages layout of arbitrary wheels.
+
+### One-time Airflow Connection and Variable
+
+Use the same `ENV` / `LOC` pattern as [Configure Airflow Variables](#configure-airflow-variables).
+Replace the API key and reservation IDs with values from your Rabbit and GCP
+setup.
+
+**Connection `rabbit_api`** (API key in the password field; optional base URL
+in extras — omit `api_base_url` to use Rabbit’s default):
+
+```bash
+gcloud composer environments run "$ENV" --location "$LOC" \
+    connections -- add rabbit_api \
+    --conn-type generic \
+    --conn-password "$RABBIT_API_KEY" \
+    --conn-extra '{"api_base_url": "https://api.followrabbit.ai/bq-job-optimizer"}'
+```
+
+**Variable `rabbit_bq_optimizer_config`** — JSON with
+`default_pricing_mode` (`on_demand` or `slot_based`) and **`reservation_ids`**
+as a non-empty list of BigQuery reservation IDs in the form
+`project:region.reservation-name`. The upstream plugin **skips** optimization
+when `reservation_ids` is empty (jobs run with the original configuration and
+you will see a warning in task logs instead of
+`Rabbit BQ Optimizer: Received optimization result:`).
+
+```bash
+gcloud composer environments run "$ENV" --location "$LOC" \
+    variables -- set rabbit_bq_optimizer_config \
+    '{"default_pricing_mode":"on_demand","reservation_ids":["YOUR_PROJECT:US.YOUR_RESERVATION"]}'
+```
+
+### Verify the plugin
+
+1. Airflow UI → **Admin → Plugins** lists **Rabbit BQ Optimizer** (or the plugin
+   name shown there).
+2. Run `bigquery_elt_demo` and open a BigQuery task log. When optimization runs,
+   look for `Rabbit BQ Optimizer: Received optimization result:`.
+3. Confirm BigQuery jobs still succeed end-to-end.
+
+Composer PyPI dependencies for the demo live in
+[`requirements-composer.txt`](requirements-composer.txt). The release workflow
+applies them with `gcloud composer environments update
+--update-pypi-packages-from-file` **only when that file changes** (the update
+rebuilds the environment image and typically takes 15–25 minutes).
 
 ## Deploying with GitHub Actions (release-please)
 
@@ -98,8 +164,13 @@ versioning and triggers a Cloud Composer deploy on every release.
 3. The release event gates the `deploy` job, which:
    - authenticates to GCP via [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
      (no long-lived Service Account JSON),
-   - imports the `dags/` directory into the environment with
-     `gcloud composer environments storage dags import --source=dags/`.
+   - when [`requirements-composer.txt`](requirements-composer.txt) changed
+     since the previous release tag, runs
+     `gcloud composer environments update ... --update-pypi-packages-from-file=requirements-composer.txt`
+     to install Composer PyPI deps (otherwise skips this slow step),
+   - resolves the environment’s `config.dagGcsPrefix` and uploads `dags/*` and
+     `plugins/*` with `gcloud storage cp --recursive` (avoids a duplicated
+     `dags/dags/` path under the bucket).
 
    Airflow Variables (`gcp_project_id`, `bq_dataset`, `gcs_bucket`) are owned
    by Airflow itself — set them once per environment (see
@@ -180,7 +251,7 @@ every pull request against `main` (and on `workflow_dispatch`) with two jobs:
 
 | Job | What it does |
 | --- | --- |
-| `ruff` | `ruff check dags` + `ruff format --check dags` |
+| `ruff` | `ruff check` / `ruff format --check` on `dags/` and `plugins/` |
 | `parse-dags` | Installs `requirements.txt` and parses every DAG via Airflow's `DagBag`, failing the build on any import error |
 
 This is independent of `release.yml` — no GCP credentials needed, so it
@@ -199,7 +270,7 @@ so `requirements.txt` here is **only for local IDE/lint**:
 uv venv --python 3.11   # use Python 3.11 to match Composer 3
 source .venv/bin/activate
 uv pip install -r requirements.txt
-ruff check dags && ruff format --check dags
+ruff check dags plugins && ruff format --check dags plugins
 python -c "from airflow.models import DagBag; \
     db = DagBag('dags', include_examples=False); \
     assert not db.import_errors, db.import_errors; print('DAGs OK')"
