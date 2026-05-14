@@ -160,8 +160,9 @@ gcloud composer environments run "$ENV" --location "$LOC" \
 Composer PyPI dependencies for the demo live in
 [`requirements-composer.txt`](requirements-composer.txt). The release workflow
 applies them with `gcloud composer environments update
---update-pypi-packages-from-file` **only when that file changes** (the update
-rebuilds the environment image and typically takes 15–25 minutes).
+--update-pypi-packages-from-file` **when `requirements-composer.txt` or anything
+under `plugins/` changed** since the previous release tag (the update rebuilds
+the environment image and typically takes 15–25 minutes).
 
 ## Deploying with GitHub Actions (release-please)
 
@@ -185,8 +186,8 @@ versioning and triggers a Cloud Composer deploy on every release.
      update so a failed `composer environments update` (for example missing
      `composer.environments.update` on the deploy service account) does not
      block DAG or Airflow plugin files from reaching GCS.
-   - when [`requirements-composer.txt`](requirements-composer.txt) changed
-     since the previous release tag, runs
+   - when [`requirements-composer.txt`](requirements-composer.txt) **or**
+     [`plugins/`](plugins/) changed since the previous release tag, runs
      `gcloud composer environments update ... --update-pypi-packages-from-file=requirements-composer.txt`
      to install Composer PyPI deps (otherwise skips this slow step).
 
