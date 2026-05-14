@@ -19,6 +19,20 @@ public dataset. Three BigQuery tasks chained in series:
 All three operators run with `deferrable=True` to free worker slots while
 BigQuery jobs run.
 
+### `bigquery_bch_elt_demo`
+
+A daily ELT pipeline against
+[`bigquery-public-data.crypto_bitcoin_cash.transactions`](https://console.cloud.google.com/marketplace/product/google-cloud-public-datasets/crypto-bitcoin-cash)
+(Bitcoin Cash blockchain transactions in BigQuery). Same three-task shape as
+`bigquery_elt_demo`, using the same Airflow Variables (`gcp_project_id`,
+`bq_dataset`, `gcs_bucket`):
+
+| Task | Operator | What it does |
+| --- | --- | --- |
+| `stage_transactions` | `BigQueryInsertJobOperator` | `CREATE OR REPLACE TABLE` of the last 30 days of transactions (with `block_timestamp_month` predicates to prune partitions) into `stg_bch_transactions`. |
+| `aggregate_daily_tx` | `BigQueryInsertJobOperator` | Aggregates into `mart_daily_bch_transactions` (daily tx counts, input/output value sums, coinbase counts). |
+| `export_to_gcs` | `BigQueryToGCSOperator` | Exports the mart to `gs://<bucket>/bch-transactions-extract/<ds>/part-*.parquet`. |
+
 ## Prerequisites
 
 1. A **Cloud Composer 3** environment. See
@@ -91,8 +105,9 @@ This repo includes the Airflow plugin file from the
 repository as [`plugins/rabbit_bq_optimizer_plugin.py`](plugins/rabbit_bq_optimizer_plugin.py),
 following the upstream project’s recommended layout for Composer’s `plugins/`
 folder. BigQuery jobs submitted through Airflow can be routed through Rabbit’s
-optimizer API before `BigQueryHook.insert_job` runs. The DAG code in
-`bigquery_elt_demo` does not change; at Airflow startup the plugin alters
+optimizer API before `BigQueryHook.insert_job` runs. The DAG code in the
+sample DAGs (`bigquery_elt_demo`, `bigquery_bch_elt_demo`) does not change; at
+Airflow startup the plugin alters
 `BigQueryHook` so job configurations are passed through Rabbit before they are
 sent to BigQuery.
 
@@ -157,7 +172,7 @@ gcloud composer environments run "$ENV" --location "$LOC" \
 
 1. Airflow UI → **Admin → Plugins** lists **Rabbit BQ Optimizer** (or the plugin
    name shown there).
-2. Run `bigquery_elt_demo` and open a BigQuery task log. When optimization runs,
+2. Run `bigquery_elt_demo` or `bigquery_bch_elt_demo` and open a BigQuery task log. When optimization runs,
    look for `Rabbit BQ Optimizer: Received optimization result:`.
 3. Confirm BigQuery jobs still succeed end-to-end.
 
@@ -266,6 +281,10 @@ For one-off deploys without going through release-please:
 gcloud composer environments storage dags import \
     --environment "$ENV" --location "$LOC" \
     --source dags/bigquery_elt_demo.py
+# Or import the Bitcoin Cash demo DAG:
+#   --source dags/bigquery_bch_elt_demo.py
+# Or upload the whole folder (matches CI): use ``gcloud storage cp`` to the
+# environment's ``dags/`` prefix — see the deploy workflow in this repo.
 ```
 
 It will appear in the Airflow UI within ~1 minute. Trigger it manually from
