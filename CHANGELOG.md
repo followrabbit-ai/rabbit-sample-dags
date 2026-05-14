@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.3.0...rabbit-sample-dags-v0.3.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* **ci:** upload DAGs and plugins before Composer PyPI sync ([33be524](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/33be52440f5888e040dbe781bf65892ad28749bd))
+* **ci:** upload DAGs and plugins before Composer PyPI sync ([60e8560](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/60e8560aaff0629d0c0029b17313f5f9d59d969b))
+
 ## [0.3.0](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.2.2...rabbit-sample-dags-v0.3.0) (2026-05-13)
 
 
