@@ -179,13 +179,16 @@ versioning and triggers a Cloud Composer deploy on every release.
 3. The release event gates the `deploy` job, which:
    - authenticates to GCP via [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
      (no long-lived Service Account JSON),
+   - resolves the environment’s `config.dagGcsPrefix` and uploads `dags/*` and
+     `plugins/*` with `gcloud storage cp --recursive` (avoids a duplicated
+     `dags/dags/` path under the bucket). This step runs **before** any PyPI
+     update so a failed `composer environments update` (for example missing
+     `composer.environments.update` on the deploy service account) does not
+     block DAG or Airflow plugin files from reaching GCS.
    - when [`requirements-composer.txt`](requirements-composer.txt) changed
      since the previous release tag, runs
      `gcloud composer environments update ... --update-pypi-packages-from-file=requirements-composer.txt`
-     to install Composer PyPI deps (otherwise skips this slow step),
-   - resolves the environment’s `config.dagGcsPrefix` and uploads `dags/*` and
-     `plugins/*` with `gcloud storage cp --recursive` (avoids a duplicated
-     `dags/dags/` path under the bucket).
+     to install Composer PyPI deps (otherwise skips this slow step).
 
    Airflow Variables (`gcp_project_id`, `bq_dataset`, `gcs_bucket`) are owned
    by Airflow itself — set them once per environment (see
