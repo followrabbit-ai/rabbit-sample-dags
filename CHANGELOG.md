@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.3.1...rabbit-sample-dags-v0.4.0) (2026-05-14)
+
+
+### Features
+
+* add Bitcoin Cash transactions ELT demo DAG ([#17](https://github.com/followrabbit-ai/rabbit-sample-dags/issues/17)) ([58083a5](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/58083a517bc56d82ca3437935756ac5cb17aa6ac))
+
 ## [0.3.1](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.3.0...rabbit-sample-dags-v0.3.1) (2026-05-14)
 
 
