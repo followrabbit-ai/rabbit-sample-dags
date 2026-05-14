@@ -55,7 +55,7 @@ DECLARE max_dt DATE DEFAULT (
 
 CREATE OR REPLACE TABLE `{STAGE_TABLE}` AS
 SELECT
-  hash,
+  `hash`,
   size,
   virtual_size,
   version,
