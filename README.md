@@ -197,6 +197,13 @@ versioning and triggers a Cloud Composer deploy on every release.
 4. The workflow can also be triggered manually (`workflow_dispatch`) to
    redeploy `main` without cutting a release.
 
+After uploading to GCS, the deploy job **verifies** that `bigquery_elt_demo.py`
+and `plugins/rabbit_bq_optimizer_plugin.py` exist at the resolved Composer
+prefixes (`gcloud storage objects describe`). That confirms the objects landed
+in the bucket; it does **not** assert that Airflow lists the plugin in the UI
+or that the PyPI dependency is installed on workers (those still require a
+healthy Composer image and runtime).
+
 ### Required GitHub Secrets
 
 None for GCP deploy: authentication uses Workload Identity Federation, so no

@@ -101,6 +101,23 @@ jobs:
           echo "Uploading plugins/* -> $PLUGIN_PREFIX/"
           gcloud storage cp --recursive plugins/* "$PLUGIN_PREFIX/"
 
+      - name: Verify DAG and plugin objects in GCS
+        id: gcs_verify
+        run: |
+          set -euo pipefail
+          DAG_PREFIX=$(gcloud composer environments describe \
+            "${{ vars.COMPOSER_ENV_NAME }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --location="${{ vars.COMPOSER_LOCATION }}" \
+            --format='value(config.dagGcsPrefix)')
+          PLUGIN_PREFIX="${DAG_PREFIX%/dags}/plugins"
+          DAG_OBJECT="${DAG_PREFIX}/bigquery_elt_demo.py"
+          PLUGIN_OBJECT="${PLUGIN_PREFIX}/rabbit_bq_optimizer_plugin.py"
+          echo "Verifying DAG object exists: $DAG_OBJECT"
+          gcloud storage objects describe "$DAG_OBJECT" --format='value(name)'
+          echo "Verifying plugin object exists: $PLUGIN_OBJECT"
+          gcloud storage objects describe "$PLUGIN_OBJECT" --format='value(name)'
+
       - name: Sync Composer PyPI deps
         if: steps.pypi_diff.outputs.changed == 'true'
         run: |
@@ -125,6 +142,7 @@ jobs:
             else
               echo "- PyPI deps: skipped (${{ steps.pypi_diff.outputs.reason }})"
             fi
+            echo "- GCS verify (DAG + plugin objects): \`${{ steps.gcs_verify.outcome }}\`"
             if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
               echo "- Trigger: manual (workflow_dispatch)"
             else
