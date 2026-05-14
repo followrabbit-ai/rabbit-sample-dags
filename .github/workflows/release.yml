@@ -65,8 +65,9 @@ jobs:
         run: |
           set -euo pipefail
           # gcloud composer environments update --update-pypi-packages-from-file
-          # rebuilds the worker image (~15-25 min). Only run when the file
-          # actually changed since the previous release tag.
+          # rebuilds the worker image (~15-25 min). Run when requirements-composer.txt
+          # OR plugins/ changed since the previous release tag (plugins may import PyPI
+          # deps; uploading plugins alone does not install them on the image).
           current_tag=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
           if [[ -n "$current_tag" ]]; then
             prev_tag=$(git tag --sort=-version:refname | grep -vx "$current_tag" | head -n 1 || true)
@@ -77,14 +78,18 @@ jobs:
             echo "No previous tag found; will sync PyPI deps."
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "reason=no previous tag" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$prev_tag" HEAD -- requirements-composer.txt; then
-            echo "requirements-composer.txt unchanged since $prev_tag; skipping PyPI sync."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "reason=unchanged since $prev_tag" >> "$GITHUB_OUTPUT"
-          else
+          elif ! git diff --quiet "$prev_tag" HEAD -- requirements-composer.txt; then
             echo "requirements-composer.txt changed since $prev_tag; will sync."
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "reason=changed since $prev_tag" >> "$GITHUB_OUTPUT"
+            echo "reason=requirements-composer.txt changed since $prev_tag" >> "$GITHUB_OUTPUT"
+          elif ! git diff --quiet "$prev_tag" HEAD -- plugins/; then
+            echo "plugins/ changed since $prev_tag; will sync PyPI deps."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "reason=plugins/ changed since $prev_tag" >> "$GITHUB_OUTPUT"
+          else
+            echo "requirements-composer.txt and plugins/ unchanged since $prev_tag; skipping PyPI sync."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "reason=unchanged since $prev_tag" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Import DAGs and plugins into Composer
