@@ -98,7 +98,11 @@ sent to BigQuery.
 
 The integration into this repository (Composer PyPI dependency, GitHub Actions
 deploy of `plugins/` and `requirements-composer.txt`, and documentation) was
-added in **[PR #8](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/8)**—see that pull request for the concrete file and workflow changes.
+introduced in **[PR #8](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/8)**.
+That PR is a useful historical anchor for the initial files and layout; **current**
+deploy behavior (auth, GCS paths, PyPI sync conditions, verify steps) lives in
+[`.github/workflows/release.yml`](.github/workflows/release.yml) on `main` and
+in the sections below—follow those rather than replaying only PR #8.
 
 ### Why both PyPI and `plugins/`?
 
