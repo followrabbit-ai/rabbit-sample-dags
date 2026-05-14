@@ -84,13 +84,21 @@ If you enable the Rabbit BQ Optimizer plugin below, add the separate
 `rabbit_api` connection there (the plugin does not reuse
 `google_cloud_default`).
 
-## Rabbit BQ Optimizer plugin (C1)
+## Rabbit BQ Optimizer plugin
 
-This repo vendors the [Rabbit BigQuery Job Optimizer Airflow plugin](https://github.com/followrabbit-ai/bq-job-optimizer-airflow-plugin)
-so BigQuery jobs submitted through Airflow can be routed through Rabbit’s
+This repo includes the Airflow plugin file from the
+[Rabbit BigQuery Job Optimizer Airflow plugin](https://github.com/followrabbit-ai/bq-job-optimizer-airflow-plugin)
+repository as [`plugins/rabbit_bq_optimizer_plugin.py`](plugins/rabbit_bq_optimizer_plugin.py),
+following the upstream project’s recommended layout for Composer’s `plugins/`
+folder. BigQuery jobs submitted through Airflow can be routed through Rabbit’s
 optimizer API before `BigQueryHook.insert_job` runs. The DAG code in
-`bigquery_elt_demo` does not change; the plugin monkey-patches
-`BigQueryHook` at Airflow startup.
+`bigquery_elt_demo` does not change; at Airflow startup the plugin alters
+`BigQueryHook` so job configurations are passed through Rabbit before they are
+sent to BigQuery.
+
+The integration into this repository (Composer PyPI dependency, GitHub Actions
+deploy of `plugins/` and `requirements-composer.txt`, and documentation) was
+added in **[PR #8](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/8)**—see that pull request for the concrete file and workflow changes.
 
 ### Why both PyPI and `plugins/`?
 
@@ -194,7 +202,7 @@ Secrets.
 
 The Rabbit optimizer API key is also **not** a GitHub Secret for this repo; it
 lives only in the Composer Airflow connection `rabbit_api` (see
-[Rabbit BQ Optimizer plugin (C1)](#rabbit-bq-optimizer-plugin-c1)).
+[Rabbit BQ Optimizer plugin](#rabbit-bq-optimizer-plugin)).
 
 ### Required GitHub Variables
 
