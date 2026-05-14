@@ -87,16 +87,6 @@ jobs:
             echo "reason=changed since $prev_tag" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Sync Composer PyPI deps
-        if: steps.pypi_diff.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          echo "Applying requirements-composer.txt to ${{ vars.COMPOSER_ENV_NAME }} (may take 15-25 min)..."
-          gcloud composer environments update "${{ vars.COMPOSER_ENV_NAME }}" \
-            --project="${{ vars.GCP_PROJECT_ID }}" \
-            --location="${{ vars.COMPOSER_LOCATION }}" \
-            --update-pypi-packages-from-file=requirements-composer.txt
-
       - name: Import DAGs and plugins into Composer
         run: |
           set -euo pipefail
@@ -110,6 +100,16 @@ jobs:
           gcloud storage cp --recursive dags/* "$DAG_PREFIX/"
           echo "Uploading plugins/* -> $PLUGIN_PREFIX/"
           gcloud storage cp --recursive plugins/* "$PLUGIN_PREFIX/"
+
+      - name: Sync Composer PyPI deps
+        if: steps.pypi_diff.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          echo "Applying requirements-composer.txt to ${{ vars.COMPOSER_ENV_NAME }} (may take 15-25 min)..."
+          gcloud composer environments update "${{ vars.COMPOSER_ENV_NAME }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --location="${{ vars.COMPOSER_LOCATION }}" \
+            --update-pypi-packages-from-file=requirements-composer.txt
 
       - name: Summarize deploy
         if: always()
