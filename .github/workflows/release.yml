@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_pypi_sync:
+        description: >
+          Run composer environments update (PyPI) even when requirements-composer.txt
+          and plugins/ are unchanged since the last tag (~15–25 min image rebuild).
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -107,7 +114,7 @@ jobs:
           gcloud storage cp --recursive plugins/* "$PLUGIN_PREFIX/"
 
       - name: Sync Composer PyPI deps
-        if: steps.pypi_diff.outputs.changed == 'true'
+        if: ${{ steps.pypi_diff.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_pypi_sync) }}
         run: |
           set -euo pipefail
           echo "Applying requirements-composer.txt to ${{ vars.COMPOSER_ENV_NAME }} (may take 15-25 min)..."
@@ -118,6 +125,8 @@ jobs:
 
       - name: Summarize deploy
         if: always()
+        env:
+          FORCE_PYPI_SYNC: ${{ github.event_name == 'workflow_dispatch' && inputs.force_pypi_sync }}
         run: |
           {
             echo "### Cloud Composer deploy"
@@ -127,11 +136,13 @@ jobs:
             echo "- Service account: \`${{ vars.GCP_COMPOSER_SA }}\`"
             if [[ "${{ steps.pypi_diff.outputs.changed }}" == "true" ]]; then
               echo "- PyPI deps: re-synced from \`requirements-composer.txt\` (${{ steps.pypi_diff.outputs.reason }})"
+            elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && [[ "${FORCE_PYPI_SYNC}" == "true" ]]; then
+              echo "- PyPI deps: re-synced from \`requirements-composer.txt\` (manual: \`force_pypi_sync\`)"
             else
               echo "- PyPI deps: skipped (${{ steps.pypi_diff.outputs.reason }})"
             fi
             if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-              echo "- Trigger: manual (workflow_dispatch)"
+              echo "- Trigger: manual (workflow_dispatch; force_pypi_sync=\`${FORCE_PYPI_SYNC}\`)"
             else
               echo "- Trigger: release \`${{ needs.release-please.outputs.tag_name }}\`"
             fi
