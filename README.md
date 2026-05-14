@@ -200,7 +200,12 @@ versioning and triggers a Cloud Composer deploy on every release.
    [Configure Airflow Variables](#configure-airflow-variables)) rather than
    re-mirroring on every deploy.
 4. The workflow can also be triggered manually (`workflow_dispatch`) to
-   redeploy `main` without cutting a release.
+   redeploy `main` without cutting a release. When you run it from the Actions
+   tab, enable **force_pypi_sync** if you need `gcloud composer environments
+   update --update-pypi-packages-from-file` even though `requirements-composer.txt`
+   and `plugins/` did not change since the last release tag (for example to fix
+   a Composer image that never picked up PyPI deps). Leave it off for a faster
+   run that only refreshes DAGs and plugins in GCS.
 
 ### Required GitHub Secrets
 
