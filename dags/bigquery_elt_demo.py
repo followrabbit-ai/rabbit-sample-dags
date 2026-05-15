@@ -79,7 +79,7 @@ ORDER BY ride_date
 @dag(
     dag_id="bigquery_elt_demo",
     description="Three-task BigQuery ELT against the austin_bikeshare public dataset.",
-    schedule="@daily",
+    schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
     max_active_runs=1,

@@ -6,9 +6,9 @@ Sample Apache Airflow DAGs for [Cloud Composer 3](https://cloud.google.com/compo
 
 ### `bigquery_elt_demo`
 
-A daily ELT pipeline against the
+An ELT pipeline against the
 [`bigquery-public-data.austin_bikeshare`](https://console.cloud.google.com/marketplace/product/city-of-austin/austin-bikeshare)
-public dataset. Three BigQuery tasks chained in series:
+public dataset (**no Airflow schedule**—trigger manually or via API/CLI). Three BigQuery tasks chained in series:
 
 | Task | Operator | What it does |
 | --- | --- | --- |
@@ -21,9 +21,9 @@ BigQuery jobs run.
 
 ### `bigquery_bch_elt_demo`
 
-A daily ELT pipeline against
+An ELT pipeline against
 [`bigquery-public-data.crypto_bitcoin_cash.transactions`](https://console.cloud.google.com/marketplace/product/google-cloud-public-datasets/crypto-bitcoin-cash)
-(Bitcoin Cash blockchain transactions in BigQuery). Same three-task shape as
+(Bitcoin Cash blockchain transactions in BigQuery; **no Airflow schedule**—trigger manually or via API/CLI). Same three-task shape as
 `bigquery_elt_demo`, using the same Airflow Variables (`gcp_project_id`,
 `bq_dataset`, `gcs_bucket`):
 

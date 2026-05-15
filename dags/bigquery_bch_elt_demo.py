@@ -94,7 +94,7 @@ ORDER BY tx_date
         "Three-task BigQuery ELT against crypto_bitcoin_cash.transactions "
         "(public dataset)."
     ),
-    schedule="@daily",
+    schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
     max_active_runs=1,
