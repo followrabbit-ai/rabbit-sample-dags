@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.4.0...rabbit-sample-dags-v0.4.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **dags:** quote `hash` in BCH BigQuery staging SQL ([#19](https://github.com/followrabbit-ai/rabbit-sample-dags/issues/19)) ([c0cd420](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/c0cd420f89b5bfd9b3d675cbdc349ba758684422))
+
 ## [0.4.0](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.3.1...rabbit-sample-dags-v0.4.0) (2026-05-14)
 
 
