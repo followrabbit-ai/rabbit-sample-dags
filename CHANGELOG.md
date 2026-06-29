@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.4.1...rabbit-sample-dags-v0.5.0) (2026-06-29)
+
+
+### Features
+
+* **composer:** install Rabbit BQ optimizer plugin from PyPI ([#22](https://github.com/followrabbit-ai/rabbit-sample-dags/issues/22)) ([dc9a6c5](https://github.com/followrabbit-ai/rabbit-sample-dags/commit/dc9a6c5baa5365d93b22ceb5b5589521d239721a))
+
 ## [0.4.1](https://github.com/followrabbit-ai/rabbit-sample-dags/compare/rabbit-sample-dags-v0.4.0...rabbit-sample-dags-v0.4.1) (2026-05-15)
 
 
