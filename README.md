@@ -116,7 +116,7 @@ upload, and documentation) was introduced in
 The migration from a copied `plugins/rabbit_bq_optimizer_plugin.py` to the
 PyPI plugin package — including updated Composer dependencies, deploy
 workflow, and removal of the legacy GCS plugin file — is introduced in
-**[PR #N](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/N)**.
+**[PR #22](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/22)**.
 That PR is the historical anchor for the new install model; **current** deploy
 behavior lives in [`.github/workflows/release.yml`](.github/workflows/release.yml)
 on `main` and in the sections below—follow those rather than replaying only
