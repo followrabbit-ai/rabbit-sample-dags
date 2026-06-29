@@ -100,35 +100,43 @@ If you enable the Rabbit BQ Optimizer plugin below, add the separate
 
 ## Rabbit BQ Optimizer plugin
 
-This repo includes the Airflow plugin file from the
-[Rabbit BigQuery Job Optimizer Airflow plugin](https://github.com/followrabbit-ai/bq-job-optimizer-airflow-plugin)
-repository as [`plugins/rabbit_bq_optimizer_plugin.py`](plugins/rabbit_bq_optimizer_plugin.py),
-following the upstream project’s recommended layout for Composer’s `plugins/`
-folder. BigQuery jobs submitted through Airflow can be routed through Rabbit’s
-optimizer API before `BigQueryHook.insert_job` runs. The DAG code in the
-sample DAGs (`bigquery_elt_demo`, `bigquery_bch_elt_demo`) does not change; at
-Airflow startup the plugin alters
-`BigQueryHook` so job configurations are passed through Rabbit before they are
-sent to BigQuery.
+This repo installs the [Rabbit BigQuery Job Optimizer Airflow plugin](https://github.com/followrabbit-ai/bq-job-optimizer-airflow-plugin)
+via PyPI as [`rabbit-bq-optimizer-airflow-plugin`](https://pypi.org/project/rabbit-bq-optimizer-airflow-plugin/).
+Airflow discovers the plugin through its entry point — no file copy into
+Composer’s `plugins/` folder is required. BigQuery jobs submitted through
+Airflow can be routed through Rabbit’s optimizer API before
+`BigQueryHook.insert_job` runs. The DAG code in the sample DAGs
+(`bigquery_elt_demo`, `bigquery_bch_elt_demo`) does not change; at Airflow
+startup the plugin alters `BigQueryHook` so job configurations are passed
+through Rabbit before they are sent to BigQuery.
 
-The integration into this repository (Composer PyPI dependency, GitHub Actions
-deploy of `plugins/` and `requirements-composer.txt`, and documentation) was
-introduced in **[PR #8](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/8)**.
-That PR is a useful historical anchor for the initial files and layout; **current**
-deploy behavior (auth, GCS paths, PyPI sync conditions, verify steps) lives in
-[`.github/workflows/release.yml`](.github/workflows/release.yml) on `main` and
-in the sections below—follow those rather than replaying only PR #8.
+The initial copied-plugin integration (Composer PyPI client, GCS `plugins/`
+upload, and documentation) was introduced in
+**[PR #8](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/8)**.
+The migration from a copied `plugins/rabbit_bq_optimizer_plugin.py` to the
+PyPI plugin package — including updated Composer dependencies, deploy
+workflow, and removal of the legacy GCS plugin file — is introduced in
+**[PR #N](https://github.com/followrabbit-ai/rabbit-sample-dags/pull/N)**.
+That PR is the historical anchor for the new install model; **current** deploy
+behavior lives in [`.github/workflows/release.yml`](.github/workflows/release.yml)
+on `main` and in the sections below—follow those rather than replaying only
+PR #8 or the migration PR alone.
 
-### Why both PyPI and `plugins/`?
+### PyPI dependencies
 
-- **`rabbit-bq-job-optimizer` (PyPI)** — Python client library (`rabbit_bq_job_optimizer`).
-  Installing it on the Composer environment makes `import rabbit_bq_job_optimizer`
-  succeed in the worker image.
-- **`plugins/rabbit_bq_optimizer_plugin.py`** — Airflow plugin shim: subclasses
+Composer installs both packages from
+[`requirements-composer.txt`](requirements-composer.txt):
+
+- **`rabbit-bq-job-optimizer`** — Python client library (`rabbit_bq_job_optimizer`).
+- **`rabbit-bq-optimizer-airflow-plugin`** — Airflow plugin that subclasses
   `AirflowPlugin`, loads the `rabbit_api` connection and
-  `rabbit_bq_optimizer_config` variable, and applies the hook patch. Composer
-  loads plugins from the environment bucket’s `plugins/` prefix (synced by
-  the deploy workflow), not from the site-packages layout of arbitrary wheels.
+  `rabbit_bq_optimizer_config` variable, and applies the hook patch. Registers
+  automatically via Airflow’s plugin entry point when the environment image is
+  rebuilt.
+
+If you previously deployed the copied `rabbit_bq_optimizer_plugin.py` to
+Composer’s GCS `plugins/` prefix, the release workflow removes that legacy
+file on deploy so it does not duplicate the PyPI-registered plugin.
 
 ### Secrets (Rabbit API key)
 
@@ -179,9 +187,9 @@ gcloud composer environments run "$ENV" --location "$LOC" \
 Composer PyPI dependencies for the demo live in
 [`requirements-composer.txt`](requirements-composer.txt). The release workflow
 applies them with `gcloud composer environments update
---update-pypi-packages-from-file` **when `requirements-composer.txt` or anything
-under `plugins/` changed** since the previous release tag (the update rebuilds
-the environment image and typically takes 15–25 minutes).
+--update-pypi-packages-from-file` **when `requirements-composer.txt` changed**
+since the previous release tag (the update rebuilds the environment image and
+typically takes 15–25 minutes).
 
 ## Deploying with GitHub Actions (release-please)
 
@@ -199,16 +207,19 @@ versioning and triggers a Cloud Composer deploy on every release.
 3. The release event gates the `deploy` job, which:
    - authenticates to GCP via [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
      (no long-lived Service Account JSON),
-   - resolves the environment’s `config.dagGcsPrefix` and uploads `dags/*` and
-     `plugins/*` with `gcloud storage cp --recursive` (avoids a duplicated
-     `dags/dags/` path under the bucket). This step runs **before** any PyPI
-     update so a failed `composer environments update` (for example missing
+   - resolves the environment’s `config.dagGcsPrefix` and uploads `dags/*` with
+     `gcloud storage cp --recursive` (avoids a duplicated `dags/dags/` path
+     under the bucket), and removes any legacy copied
+     `rabbit_bq_optimizer_plugin.py` from the environment’s GCS `plugins/`
+     prefix. This step runs **before** any PyPI update so a failed
+     `composer environments update` (for example missing
      `composer.environments.update` on the deploy service account) does not
-     block DAG or Airflow plugin files from reaching GCS.
-   - when [`requirements-composer.txt`](requirements-composer.txt) **or**
-     [`plugins/`](plugins/) changed since the previous release tag, runs
+     block DAG files from reaching GCS.
+   - when [`requirements-composer.txt`](requirements-composer.txt) changed since
+     the previous release tag, runs
      `gcloud composer environments update ... --update-pypi-packages-from-file=requirements-composer.txt`
-     to install Composer PyPI deps (otherwise skips this slow step).
+     to install Composer PyPI deps (including the Rabbit optimizer plugin;
+     otherwise skips this slow step).
 
    Airflow Variables (`gcp_project_id`, `bq_dataset`, `gcs_bucket`) are owned
    by Airflow itself — set them once per environment (see
@@ -218,9 +229,9 @@ versioning and triggers a Cloud Composer deploy on every release.
    redeploy `main` without cutting a release. When you run it from the Actions
    tab, enable **force_pypi_sync** if you need `gcloud composer environments
    update --update-pypi-packages-from-file` even though `requirements-composer.txt`
-   and `plugins/` did not change since the last release tag (for example to fix
-   a Composer image that never picked up PyPI deps). Leave it off for a faster
-   run that only refreshes DAGs and plugins in GCS.
+   did not change since the last release tag (for example to fix a Composer
+   image that never picked up PyPI deps). Leave it off for a faster run that
+   only refreshes DAGs in GCS.
 
 ### Required GitHub Secrets
 
@@ -260,7 +271,7 @@ in a separate infrastructure repository). A typical pattern:
 The deploy service account usually needs at least **`roles/composer.user`**
 (to resolve the Composer environment and `dagGcsPrefix`) plus
 **`roles/storage.objectAdmin`** on the Composer environment bucket (to upload
-DAGs and plugins). If you use **`gcloud composer environments update`** in CI
+DAGs). If you use **`gcloud composer environments update`** in CI
 to install PyPI packages, that account also needs permission to **update** the
 environment (for example a role that includes **`composer.environments.update`**
 — see [Composer access control](https://cloud.google.com/composer/docs/how-to/access-control)).
@@ -311,7 +322,7 @@ every pull request against `main` (and on `workflow_dispatch`) with two jobs:
 
 | Job | What it does |
 | --- | --- |
-| `ruff` | `ruff check` / `ruff format --check` on `dags/` and `plugins/` |
+| `ruff` | `ruff check` / `ruff format --check` on `dags/` |
 | `parse-dags` | Installs `requirements.txt` and parses every DAG via Airflow's `DagBag`, failing the build on any import error |
 
 This is independent of `release.yml` — no GCP credentials needed, so it

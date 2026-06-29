@@ -5,4 +5,5 @@
 # Keep pins exact: every change here triggers a Composer environment rebuild
 # that takes 15-25 minutes.
 
-rabbit-bq-job-optimizer==0.1.16
+rabbit-bq-job-optimizer==0.1.18
+rabbit-bq-optimizer-airflow-plugin==1.0.1
