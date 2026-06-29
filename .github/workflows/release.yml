@@ -8,7 +8,7 @@ on:
       force_pypi_sync:
         description: >
           Run composer environments update (PyPI) even when requirements-composer.txt
-          and plugins/ are unchanged since the last tag (~15–25 min image rebuild).
+          is unchanged since the last tag (~15–25 min image rebuild).
         type: boolean
         default: false
 
@@ -73,8 +73,7 @@ jobs:
           set -euo pipefail
           # gcloud composer environments update --update-pypi-packages-from-file
           # rebuilds the worker image (~15-25 min). Run when requirements-composer.txt
-          # OR plugins/ changed since the previous release tag (plugins may import PyPI
-          # deps; uploading plugins alone does not install them on the image).
+          # changed since the previous release tag.
           current_tag=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
           if [[ -n "$current_tag" ]]; then
             prev_tag=$(git tag --sort=-version:refname | grep -vx "$current_tag" | head -n 1 || true)
@@ -89,17 +88,13 @@ jobs:
             echo "requirements-composer.txt changed since $prev_tag; will sync."
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "reason=requirements-composer.txt changed since $prev_tag" >> "$GITHUB_OUTPUT"
-          elif ! git diff --quiet "$prev_tag" HEAD -- plugins/; then
-            echo "plugins/ changed since $prev_tag; will sync PyPI deps."
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "reason=plugins/ changed since $prev_tag" >> "$GITHUB_OUTPUT"
           else
-            echo "requirements-composer.txt and plugins/ unchanged since $prev_tag; skipping PyPI sync."
+            echo "requirements-composer.txt unchanged since $prev_tag; skipping PyPI sync."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "reason=unchanged since $prev_tag" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Import DAGs and plugins into Composer
+      - name: Import DAGs into Composer
         run: |
           set -euo pipefail
           DAG_PREFIX=$(gcloud composer environments describe \
@@ -110,8 +105,8 @@ jobs:
           PLUGIN_PREFIX="${DAG_PREFIX%/dags}/plugins"
           echo "Uploading dags/* -> $DAG_PREFIX/"
           gcloud storage cp --recursive dags/* "$DAG_PREFIX/"
-          echo "Uploading plugins/* -> $PLUGIN_PREFIX/"
-          gcloud storage cp --recursive plugins/* "$PLUGIN_PREFIX/"
+          echo "Removing legacy copied plugin (if present) -> ${PLUGIN_PREFIX}/rabbit_bq_optimizer_plugin.py"
+          gcloud storage rm "${PLUGIN_PREFIX}/rabbit_bq_optimizer_plugin.py" 2>/dev/null || true
 
       - name: Sync Composer PyPI deps
         if: ${{ steps.pypi_diff.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_pypi_sync) }}
