@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Video recording kit - holds the real Rabbit API key / reservation ID
+demo/00_env.sh

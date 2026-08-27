@@ -1,0 +1,760 @@
+<title>Rabbit Optimizer Demo Runbook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper: #f6f5f1;
+    --surface: #ffffff;
+    --surface-2: #efeee8;
+    --ink: #1b2321;
+    --ink-soft: #4a534f;
+    --muted: #727c77;
+    --border: #e0ded5;
+    --accent: #0f6d63;
+    --accent-ink: #0b4f48;
+    --accent-wash: #e0efec;
+    --live: #b1520a;
+    --live-wash: #f6e8db;
+    --code-bg: #17201e;
+    --code-fg: #e7e9e5;
+    --code-dim: #8f9c97;
+    --code-accent: #5fd6c4;
+    --code-live: #e8a15f;
+    --shadow: 0 1px 2px rgba(27,35,33,.05), 0 8px 24px -12px rgba(27,35,33,.14);
+    --maxprose: 68ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10120a;
+      --surface: #16181c;
+      --surface-2: #1e2126;
+      --ink: #e8e7e0;
+      --ink-soft: #bfc2bd;
+      --muted: #8f958f;
+      --border: #2b2f34;
+      --accent: #34c9b8;
+      --accent-ink: #7fded1;
+      --accent-wash: #16302c;
+      --live: #e0a366;
+      --live-wash: #33261a;
+      --code-bg: #0c1210;
+      --code-fg: #e7e9e5;
+      --code-dim: #7f8b86;
+      --code-accent: #5fd6c4;
+      --code-live: #e8a15f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101210;
+    --surface: #16181c;
+    --surface-2: #1e2126;
+    --ink: #e8e7e0;
+    --ink-soft: #bfc2bd;
+    --muted: #8f958f;
+    --border: #2b2f34;
+    --accent: #34c9b8;
+    --accent-ink: #7fded1;
+    --accent-wash: #16302c;
+    --live: #e0a366;
+    --live-wash: #33261a;
+    --code-bg: #0c1210;
+    --code-fg: #e7e9e5;
+    --code-dim: #7f8b86;
+    --code-accent: #5fd6c4;
+    --code-live: #e8a15f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.55);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 2rem; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+
+  .wrap {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 4vw, 3rem) 6rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  @media (min-width: 1000px) {
+    .wrap { grid-template-columns: 220px minmax(0, 1fr); column-gap: clamp(2rem, 5vw, 4.5rem); }
+  }
+
+  /* ---- header ---- */
+  header.hero {
+    grid-column: 1 / -1;
+    padding: clamp(2.5rem, 6vw, 4.5rem) 0 clamp(1.8rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .74rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 1.1rem;
+  }
+  h1 {
+    font-family: "Bricolage Grotesque", "Hanken Grotesk", sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.1rem, 6vw, 3.5rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 1.1rem;
+  }
+  .hero .lede {
+    font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+  }
+  .facts {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-top: 1.8rem;
+    list-style: none;
+    padding: 0;
+  }
+  .facts li {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .78rem;
+    padding: .4rem .7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-soft);
+  }
+  .facts li b { color: var(--accent-ink); font-weight: 600; }
+
+  /* ---- side nav ---- */
+  nav.rail { display: none; }
+  @media (min-width: 1000px) {
+    nav.rail {
+      display: block;
+      position: sticky;
+      top: 2rem;
+      align-self: start;
+      font-size: .9rem;
+    }
+    nav.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .15rem; }
+    nav.rail a {
+      display: flex;
+      gap: .6rem;
+      padding: .38rem .5rem;
+      border-radius: 7px;
+      color: var(--muted);
+      text-decoration: none;
+      line-height: 1.3;
+      transition: background .15s, color .15s;
+    }
+    nav.rail a .n { font-family: "JetBrains Mono", monospace; font-size: .78rem; color: var(--accent); flex-shrink: 0; }
+    nav.rail a:hover { background: var(--surface-2); color: var(--ink); }
+    nav.rail a.active { background: var(--accent-wash); color: var(--accent-ink); font-weight: 600; }
+  }
+
+  main { grid-column: 1 / -1; min-width: 0; }
+  @media (min-width: 1000px) { main { grid-column: 2; } }
+
+  section { margin-bottom: clamp(3rem, 7vw, 4.5rem); scroll-margin-top: 2rem; }
+  section > p, section > ul, section > ol { max-width: var(--maxprose); }
+
+  h2 {
+    font-family: "Bricolage Grotesque", "Hanken Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.5rem, 3.4vw, 2rem);
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    text-wrap: balance;
+    margin: 0 0 .4rem;
+    padding-top: 1.2rem;
+    border-top: 2px solid var(--ink);
+  }
+  h2 .h2n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--accent-ink);
+    display: block;
+    margin-bottom: .5rem;
+    letter-spacing: .08em;
+  }
+  h3 {
+    font-family: "Bricolage Grotesque", "Hanken Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 1.16rem;
+    letter-spacing: -0.01em;
+    margin: 2.2rem 0 .5rem;
+  }
+  h4 {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .82rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 1.6rem 0 .6rem;
+  }
+  .section-intro { color: var(--ink-soft); margin-top: 1rem; }
+
+  a { color: var(--accent-ink); text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  strong { font-weight: 700; }
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .88em;
+    background: var(--surface-2);
+    padding: .1em .38em;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  /* ---- command block ---- */
+  .cmd {
+    background: var(--code-bg);
+    border-radius: 11px;
+    margin: 1.1rem 0 1.4rem;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .cmd .cmd-tab {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--code-dim);
+    padding: .6rem .95rem;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .cmd .cmd-tab .where { color: var(--code-accent); }
+  .cmd pre {
+    margin: 0;
+    padding: .95rem 1.05rem;
+    overflow-x: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .82rem;
+    line-height: 1.65;
+    color: var(--code-fg);
+  }
+  .cmd pre .p { color: var(--code-dim); }        /* prompt / comment */
+  .cmd pre .o { color: var(--code-accent); }     /* highlighted output */
+  .cmd pre .w { color: var(--code-live); }       /* warning output */
+
+  /* ---- callouts ---- */
+  .call {
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+    margin: 1.3rem 0;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    max-width: var(--maxprose);
+  }
+  .call p { margin: .3rem 0 0; color: var(--ink-soft); font-size: .96rem; }
+  .call p:first-child { margin-top: 0; }
+  .call .tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .7rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .call.rec { border-left: 3px solid var(--accent); }
+  .call.rec .tag { color: var(--accent-ink); }
+  .call.watch { border-left: 3px solid var(--live); background: var(--live-wash); }
+  .call.watch .tag { color: var(--live); }
+  .call.say { border-left: 3px solid var(--ink-soft); background: var(--surface-2); }
+  .call.say .tag { color: var(--muted); }
+  .call.say p { font-style: italic; color: var(--ink); }
+
+  /* ---- shot list ---- */
+  .shots { display: flex; flex-direction: column; gap: 0; margin: 1.4rem 0; }
+  .shot {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .5rem;
+    padding: 1.1rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .shot:last-child { border-bottom: 1px solid var(--border); }
+  @media (min-width: 720px) {
+    .shot { grid-template-columns: 62px 1fr; column-gap: 1.2rem; }
+  }
+  .shot .tc {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .76rem;
+    color: var(--accent-ink);
+    font-weight: 600;
+    padding-top: .1rem;
+  }
+  .shot .body { min-width: 0; }
+  .shot .beat {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: 1.02rem;
+    margin: 0 0 .3rem;
+  }
+  .shot .body > p { margin: .35rem 0; font-size: .96rem; color: var(--ink-soft); max-width: var(--maxprose); }
+  .shot .onscreen { font-size: .9rem; }
+  .shot .onscreen b {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin-right: .5rem;
+  }
+
+  /* ---- checklist ---- */
+  ul.check { list-style: none; padding: 0; margin: 1.2rem 0; max-width: var(--maxprose); }
+  ul.check li {
+    padding: .55rem 0 .55rem 2rem;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    font-size: .97rem;
+  }
+  ul.check li::before {
+    content: "";
+    position: absolute;
+    left: .1rem;
+    top: .78rem;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid var(--accent);
+    border-radius: 4px;
+  }
+  ul.check li b { font-weight: 700; }
+  ul.check li code { font-size: .82em; }
+
+  /* ---- plain lists ---- */
+  main ul:not(.check):not(.facts) { padding-left: 1.15rem; }
+  main ul:not(.check):not(.facts) li { margin: .35rem 0; }
+  main ol:not(.rail ol) { padding-left: 1.3rem; }
+  main ol li { margin: .4rem 0; }
+
+  /* ---- gotcha table ---- */
+  .tablewrap { overflow-x: auto; margin: 1.3rem 0; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; min-width: 520px; }
+  th, td { text-align: left; padding: .75rem .9rem; vertical-align: top; border-bottom: 1px solid var(--border); }
+  th { font-family: "JetBrains Mono", monospace; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); }
+  tr:last-child td { border-bottom: none; }
+  td b { color: var(--accent-ink); }
+
+  .foot {
+    grid-column: 1 / -1;
+    margin-top: 2rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--border);
+    font-size: .85rem;
+    color: var(--muted);
+    max-width: var(--maxprose);
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Customer Success · Screen-recording production</p>
+    <h1>Enabling the Rabbit Pricing Optimizer, on camera</h1>
+    <p class="lede">A repeatable workflow for recording one ~15-minute walkthrough — a dbt chapter and an Airflow chapter — using the <code>dbt-rabbit-samples</code> and <code>rabbit-sample-dags</code> repos, driven live from the <code>dbt</code> and <code>gcloud</code> CLIs.</p>
+    <ul class="facts">
+      <li><b>Format</b> 1 video · 2 chapters</li>
+      <li><b>Target</b> 14–16 min</li>
+      <li><b>Env</b> fully provisioned</li>
+      <li><b>Repos</b> dbt-rabbit-samples · rabbit-sample-dags</li>
+    </ul>
+  </header>
+
+  <nav class="rail" aria-label="Runbook sections">
+    <ol>
+      <li><a href="#message"><span class="n">00</span><span>The one message</span></a></li>
+      <li><a href="#phases"><span class="n">01</span><span>Production phases</span></a></li>
+      <li><a href="#preflight"><span class="n">02</span><span>Environment pre-flight</span></a></li>
+      <li><a href="#capture"><span class="n">03</span><span>Capture setup</span></a></li>
+      <li><a href="#intro"><span class="n">04</span><span>Cold open</span></a></li>
+      <li><a href="#dbt"><span class="n">05</span><span>Chapter 1 — dbt</span></a></li>
+      <li><a href="#airflow"><span class="n">06</span><span>Chapter 2 — Airflow</span></a></li>
+      <li><a href="#outro"><span class="n">07</span><span>Close</span></a></li>
+      <li><a href="#edit"><span class="n">08</span><span>Edit &amp; publish</span></a></li>
+      <li><a href="#gotchas"><span class="n">09</span><span>Gotchas</span></a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="message">
+      <h2><span class="h2n">00</span>The one message the video has to land</h2>
+      <p>Everything else is scaffolding for this:</p>
+      <div class="call say">
+        <span class="tag">Through-line</span>
+        <p>“Rabbit is a drop-in — the same adapter for dbt, the same plugin for Airflow. Your SQL, models, and DAGs don’t change. Every BigQuery job gets routed to whichever is cheaper for that job: on-demand or your reservation. You turn it on with a profile change or a plugin install, plus one reservation ID.”</p>
+      </div>
+      <p>Both chapters follow the same three-beat arc so the pattern is unmistakable: <strong>(1)</strong> show the integration is tiny and non-invasive, <strong>(2)</strong> run a workload with optimization <em>off</em> and then <em>on</em> so the log lines change on screen, <strong>(3)</strong> cut to the Rabbit dashboard to see the routed jobs and the savings.</p>
+      <div class="call watch">
+        <span class="tag">Non-negotiable</span>
+        <p>The optimizer is a silent no-op when <code>reservation_ids</code> is empty — in <em>both</em> tools. The "off vs on" beat is exactly this toggle. Rehearse it; it's the most convincing 30 seconds in the video.</p>
+      </div>
+    </section>
+
+    <section id="phases">
+      <h2><span class="h2n">01</span>Production phases</h2>
+      <p class="section-intro">Record out of order. Chapters 1 and 2 are the hard part — do them first, while the environment is warm, then bookend with the intro and close once you know what you actually said.</p>
+      <ol>
+        <li><strong>Pre-flight</strong> (§02) — provision-check the environment, pre-bake every slow step, stage the repos and browser tabs.</li>
+        <li><strong>Capture setup</strong> (§03) — resolution, fonts, secret hygiene, notifications off, one clean shell.</li>
+        <li><strong>Record Chapter 1 — dbt</strong> (§05) — in 6–8 short takes, one per beat. Re-record a beat, not the whole chapter.</li>
+        <li><strong>Record Chapter 2 — Airflow</strong> (§06) — same, 6–8 takes.</li>
+        <li><strong>Record cold open + close</strong> (§04, §07) — last, scripted, to camera or over a static repo view.</li>
+        <li><strong>Edit &amp; publish</strong> (§08) — assemble, add on-screen callouts for the log lines, chapter markers, scrub for leaked secrets, write the description.</li>
+      </ol>
+      <div class="call rec">
+        <span class="tag">Why takes, not one pass</span>
+        <p>A live <code>dbt build</code> against public data is 30–90s of dead air. Record each beat separately, cut the waiting in the edit, and narrate the result over a still frame. Nobody wants to watch a spinner.</p>
+      </div>
+    </section>
+
+    <section id="preflight">
+      <h2><span class="h2n">02</span>Environment pre-flight</h2>
+      <p class="section-intro">You said the environment is fully provisioned. Confirm each piece is <em>live</em> the morning of the recording — tokens expire, reservations get deleted, Composer environments get paused.</p>
+
+      <h4>Checklist</h4>
+      <ul class="check">
+        <li><b>GCP project</b> with BigQuery enabled, and you know its ID. Used as <code>$GCP_PROJECT</code>.</li>
+        <li><b>A BigQuery reservation</b> in the recording region, ID in the form <code>project:US.reservation-name</code>. This is <code>$RESERVATION_ID</code> — without it, nothing routes.</li>
+        <li><b>Rabbit tenant + API key</b> from <a href="https://app.followrabbit.ai/api-keys">app.followrabbit.ai/api-keys</a>, exported as <code>RABBIT_API_KEY</code> in a file you never show.</li>
+        <li><b>Datasets exist</b>: <code>dbt_demo</code> (dbt) and <code>airflow_demo</code> (Airflow), plus the GCS export bucket for the DAGs.</li>
+        <li><b>Composer 3 environment</b> running, name + region known (<code>$ENV</code> / <code>$LOC</code>), with the plugin <em>already installed</em> (see below).</li>
+        <li><b>ADC login</b> fresh: <code>gcloud auth application-default login</code> done today; <code>gcloud auth login</code> too.</li>
+        <li><b>dbt venv</b> built and working: <code>dbt debug</code> passes green.</li>
+        <li><b>Recent public data</b> — the sample models pull a rolling 30-day window off <code>max(start_time)</code>, so they self-adjust; just confirm a build produces non-empty marts.</li>
+      </ul>
+
+      <h4>Pre-bake the slow steps (do these the day before)</h4>
+      <p>Installing the Airflow plugin rebuilds the Composer image and takes <strong>15–25 minutes</strong>. Never do this on camera. Run it ahead of time so §06 opens with the plugin already live:</p>
+      <div class="cmd">
+        <div class="cmd-tab"><span>run the day before recording</span><span class="where">local shell · gcloud</span></div>
+<pre><span class="p"># one-off manual install — rebuilds the env image, 15–25 min</span>
+gcloud composer environments update "$ENV" --location "$LOC" \
+    --update-pypi-packages-from-file=requirements-composer.txt</pre>
+      </div>
+      <p>Also pre-stage: a completed successful DAG run in history (so "here's one from earlier" is available if a live trigger stalls), and the Rabbit dashboard already showing some routed jobs.</p>
+
+      <h4>Stage on the desktop</h4>
+      <ul>
+        <li><code>dbt-rabbit-samples</code> open in the editor — <code>README.md</code>, <code>profiles.sample.yml</code>, a model file, <code>.github/workflows/release.yml</code>.</li>
+        <li><code>rabbit-sample-dags</code> open — <code>README.md</code>, <code>requirements-composer.txt</code>, <code>dags/bigquery_elt_demo.py</code>.</li>
+        <li>Browser tabs, in order: Rabbit <a href="https://app.followrabbit.ai/gcp/optimization/bigquery/automation?bq-automation-tab=DYNAMIC_PRICING">Dynamic Pricing dashboard</a>, the Airflow UI, the BigQuery console on <code>$GCP_PROJECT</code>.</li>
+        <li>A terminal, one tab, in the dbt repo, venv activated, <code>$GCP_PROJECT</code> / <code>$RESERVATION_ID</code> / <code>$ENV</code> / <code>$LOC</code> exported, <code>RABBIT_API_KEY</code> sourced from a hidden file.</li>
+      </ul>
+    </section>
+
+    <section id="capture">
+      <h2><span class="h2n">03</span>Capture setup</h2>
+      <ul class="check">
+        <li><b>Record at 1920×1080</b> (or 2560×1440 downscaled). Set the display scaling <em>before</em> you open anything.</li>
+        <li><b>Terminal font ≥ 18pt</b>, editor font ≥ 16pt. Readability on a phone is the bar.</li>
+        <li><b>Minimal shell prompt</b> — no long path, no git branch spew. Something like <code>demo $</code>.</li>
+        <li><b>Notifications off</b> — macOS Focus / Do Not Disturb, quit Slack and Mail, silence calendar alerts.</li>
+        <li><b>Secret hygiene</b>: keep <code>RABBIT_API_KEY</code> in <code>~/.rabbit.env</code> and <code>source</code> it before recording. Never <code>echo $RABBIT_API_KEY</code>, never <code>cat</code> the file, never open <code>profiles.yml</code> with a real key. Clear scrollback (<code>clear &amp;&amp; printf '\033[3J'</code>) between takes.</li>
+        <li><b>Redact in the DAG connection step</b>: type the <code>connections add</code> command with <code>$RABBIT_API_KEY</code> as the literal variable, not the value — or blur it in post.</li>
+        <li><b>Cursor emphasis / keystroke overlay</b> on if your recorder supports it (OBS, ScreenFlow, CleanShot).</li>
+        <li><b>Talk ~15% slower than feels natural.</b> Pause between commands so the edit has clean cut points.</li>
+        <li><b>Separate audio track</b> if you can — re-recording VO is easier than re-recording screen.</li>
+      </ul>
+    </section>
+
+    <section id="intro">
+      <h2><span class="h2n">04</span>Cold open — record last, ~60s</h2>
+      <div class="call say">
+        <span class="tag">Script beat</span>
+        <p>“BigQuery gives you two ways to pay: on-demand, per byte scanned, or slot-based capacity you reserve. The cheapest choice changes job by job — and picking per job by hand isn't realistic. The Rabbit Pricing Model Optimizer makes that choice automatically, at query time. In the next 15 minutes I'll turn it on two ways: first in a dbt project, then in an Airflow pipeline on Cloud Composer. Same optimizer, and in both cases the transformation code doesn't change at all.”</p>
+      </div>
+      <p><strong>On screen:</strong> the two repo READMEs side by side, or a one-slide title card. Keep it moving — get to the terminal fast.</p>
+    </section>
+
+    <section id="dbt">
+      <h2><span class="h2n">05</span>Chapter 1 — dbt <span style="font-weight:500;color:var(--muted);font-size:1rem;">(~6 min)</span></h2>
+      <p class="section-intro">Repo: <code>dbt-rabbit-samples</code>. Two BigQuery ELT pipelines (bikeshare, bitcoin_cash), each staging → mart. The adapter <code>dbt-rabbit-bigquery</code> replaces <code>dbt-bigquery</code>.</p>
+
+      <div class="shots">
+        <div class="shot">
+          <div class="tc">0:00</div>
+          <div class="body">
+            <p class="beat">The integration is three lines</p>
+            <p class="onscreen"><b>screen</b> <code>profiles.sample.yml</code> in the editor</p>
+            <p>Point at <code>type: rabbitbigquery</code> (was <code>bigquery</code>), then the three added keys: <code>rabbit_api_key</code>, <code>rabbit_default_pricing_mode</code>, <code>rabbit_reservation_ids</code>. Same <code>method: oauth</code>, same project/dataset. Then open a model — <code>models/bikeshare/staging/stg_bikeshare_trips.sql</code> — and say "this doesn't change, and neither does anything else in <code>models/</code>."</p>
+            <div class="call say"><span class="tag">say</span><p>“It's a superset of the standard adapter. Same connection, same models, same tests — plus these three keys.”</p></div>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">1:00</div>
+          <div class="body">
+            <p class="beat">Install &amp; connect</p>
+            <p class="onscreen"><b>screen</b> terminal</p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>chapter 1 · setup</span><span class="where">dbt repo · venv active</span></div>
+<pre><span class="p"># requirements.txt pins the Rabbit adapter</span>
+uv pip install -r requirements.txt
+<span class="p"># dbt-bigquery==1.9.2  +  dbt-rabbit-bigquery==1.2.0.1.9.2</span>
+
+export GCP_PROJECT=<span class="o">your-project-id</span>
+export DBT_PROFILES_DIR="$(pwd)"
+cp profiles.sample.yml profiles.yml
+
+dbt debug
+<span class="p"># Connection test: </span><span class="o">OK connection ok</span></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">2:00</div>
+          <div class="body">
+            <p class="beat">Baseline — optimization OFF</p>
+            <p class="onscreen"><b>screen</b> terminal, then <code>logs/dbt.log</code></p>
+            <p>With <code>RABBIT_RESERVATION_IDS</code> unset, run one pipeline. Call out that the build fully succeeds — Rabbit fails safe to plain BigQuery.</p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>chapter 1 · baseline</span><span class="where">dbt repo</span></div>
+<pre>unset RABBIT_RESERVATION_IDS
+dbt build --select bikeshare
+
+<span class="p"># in logs/dbt.log:</span>
+<span class="w">RabbitBigQuery adapter: Rabbit optimization disabled:</span>
+<span class="w">  Missing required rabbit_reservation_ids</span>
+<span class="p"># ...</span>
+<span class="o">Completed successfully — PASS=4 WARN=0 ERROR=0</span></pre>
+            </div>
+            <div class="call say"><span class="tag">say</span><p>“No reservation, so it does nothing — and nothing breaks. The pipeline runs exactly as it did before Rabbit.”</p></div>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">3:15</div>
+          <div class="body">
+            <p class="beat">Flip it ON</p>
+            <p class="onscreen"><b>screen</b> terminal, then <code>logs/dbt.log</code></p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>chapter 1 · enable</span><span class="where">dbt repo</span></div>
+<pre>export RABBIT_RESERVATION_IDS="<span class="o">your-project:US.your-reservation</span>"
+
+dbt build --select bikeshare --debug
+
+<span class="p"># now in logs/dbt.log:</span>
+<span class="o">RabbitBigQuery adapter: Rabbit optimization enabled</span>
+<span class="o">RabbitBigQuery adapter: routing job ... pricing_mode=...</span></pre>
+            </div>
+            <p>Run <code>grep RabbitBigQuery logs/dbt.log</code> to isolate the routing lines. This is the "it's working" proof for dbt.</p>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">4:30</div>
+          <div class="body">
+            <p class="beat">The payoff — Rabbit dashboard</p>
+            <p class="onscreen"><b>screen</b> browser · <a href="https://app.followrabbit.ai/gcp/optimization/bigquery/automation?bq-automation-tab=DYNAMIC_PRICING">Dynamic Pricing tab</a></p>
+            <p>Show the jobs from this <code>dbt build</code> appearing, the pricing decision per job, and the savings figure. Note there's a short lag — this is why you pre-staged earlier runs.</p>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">5:15</div>
+          <div class="body">
+            <p class="beat">Productionizing (brief)</p>
+            <p class="onscreen"><b>screen</b> <code>profiles.docker.yml</code>, <code>.github/workflows/release.yml</code></p>
+            <p>30 seconds: same adapter in a container, key from Secret Manager via <code>--set-secrets</code>, deployed as a Cloud Run Job by release-please. Optionally run one:</p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>chapter 1 · prod (optional)</span><span class="where">local shell · gcloud</span></div>
+<pre>gcloud run jobs execute dbt-rabbit-samples \
+    --region=us-central1 --project="$GCP_PROJECT"</pre>
+            </div>
+            <div class="call say"><span class="tag">say</span><p>“Your CI/CD will look different — the point is the optimizer travels with the adapter. Nothing extra to run.”</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="airflow">
+      <h2><span class="h2n">06</span>Chapter 2 — Airflow / Composer <span style="font-weight:500;color:var(--muted);font-size:1rem;">(~6 min)</span></h2>
+      <p class="section-intro">Repo: <code>rabbit-sample-dags</code>. Same two ELT pipelines as DAGs on Managed Service for Apache Airflow (Composer 3). The optimizer is an Airflow <em>plugin</em> that patches <code>BigQueryHook</code> at startup — the DAG code is untouched.</p>
+
+      <div class="shots">
+        <div class="shot">
+          <div class="tc">0:00</div>
+          <div class="body">
+            <p class="beat">Two PyPI packages, zero DAG changes</p>
+            <p class="onscreen"><b>screen</b> <code>requirements-composer.txt</code>, then <code>dags/bigquery_elt_demo.py</code></p>
+            <p>Show the two pins: <code>rabbit-bq-job-optimizer</code> (client) and <code>rabbit-bq-optimizer-airflow-plugin</code> (the plugin). Then scroll the DAG — three <code>BigQueryInsertJobOperator</code> / <code>BigQueryToGCSOperator</code> tasks, no Rabbit imports anywhere.</p>
+            <div class="call say"><span class="tag">say</span><p>“Airflow discovers the plugin through its entry point. At startup it wraps <code>BigQueryHook</code>, so every BigQuery job any DAG submits goes through Rabbit first.”</p></div>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">1:15</div>
+          <div class="body">
+            <p class="beat">The plugin is already installed</p>
+            <p class="onscreen"><b>screen</b> terminal (show the command, note it's pre-run), then Airflow UI → Admin → Plugins</p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>chapter 2 · install — PRE-RUN, do not run live (15–25 min)</span><span class="where">local shell · gcloud</span></div>
+<pre>gcloud composer environments update "$ENV" --location "$LOC" \
+    --update-pypi-packages-from-file=requirements-composer.txt</pre>
+            </div>
+            <p>Cut to <strong>Admin → Plugins</strong> and point at the <em>Rabbit BQ Optimizer</em> row. That's the proof it registered.</p>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">2:15</div>
+          <div class="body">
+            <p class="beat">Connection + config variable</p>
+            <p class="onscreen"><b>screen</b> terminal</p>
+            <p>The API key lives only in the Airflow connection — not in the repo, not in GitHub. Operators set it per environment.</p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>chapter 2 · configure</span><span class="where">local shell · gcloud composer</span></div>
+<pre>gcloud composer environments run "$ENV" --location "$LOC" \
+    connections -- add rabbit_api \
+    --conn-type generic \
+    --conn-password "<span class="o">$RABBIT_API_KEY</span>" \
+    --conn-extra '{"api_base_url":"https://api.followrabbit.ai/bq-job-optimizer"}'
+
+gcloud composer environments run "$ENV" --location "$LOC" \
+    variables -- set rabbit_bq_optimizer_config \
+    '{"default_pricing_mode":"on_demand","reservation_ids":["<span class="o">YOUR_PROJECT:US.YOUR_RESERVATION</span>"]}'</pre>
+            </div>
+            <div class="call watch"><span class="tag">watch</span><p>Type <code>$RABBIT_API_KEY</code> as the variable — don't paste the value on screen. Same silent-no-op rule: an empty <code>reservation_ids</code> list means the plugin skips optimization and you get a warning in the task log instead of a result.</p></div>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">3:30</div>
+          <div class="body">
+            <p class="beat">Trigger a DAG</p>
+            <p class="onscreen"><b>screen</b> terminal, then Airflow UI grid</p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>chapter 2 · run</span><span class="where">local shell · gcloud composer</span></div>
+<pre>gcloud composer environments run "$ENV" --location "$LOC" \
+    dags trigger -- bigquery_elt_demo</pre>
+            </div>
+            <p>Switch to the Airflow UI, watch <code>stage_trips → aggregate_daily_rides → export_to_gcs</code> go green. (Cut the wait in the edit.)</p>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">4:30</div>
+          <div class="body">
+            <p class="beat">Proof in the task log</p>
+            <p class="onscreen"><b>screen</b> Airflow UI · <code>stage_trips</code> task log</p>
+            <p>Open the log and find:</p>
+            <div class="cmd">
+              <div class="cmd-tab"><span>task log · stage_trips</span><span class="where">Airflow UI</span></div>
+<pre><span class="o">Rabbit BQ Optimizer: Received optimization result:</span> ...</pre>
+            </div>
+            <p>Contrast: if the reservation list were empty you'd see a warning here instead. Same off/on story as dbt, just in the task log.</p>
+          </div>
+        </div>
+
+        <div class="shot">
+          <div class="tc">5:15</div>
+          <div class="body">
+            <p class="beat">Payoff + productionizing</p>
+            <p class="onscreen"><b>screen</b> Rabbit dashboard, then <code>.github/workflows/release.yml</code></p>
+            <p>Back to the <a href="https://app.followrabbit.ai/gcp/optimization/bigquery/automation?bq-automation-tab=DYNAMIC_PRICING">same dashboard</a> — now with jobs that came from Airflow. Then 20 seconds on <code>release.yml</code>: release-please cuts a version, the deploy job syncs DAGs to GCS and runs the PyPI update only when <code>requirements-composer.txt</code> changed, auth via Workload Identity Federation — no service-account JSON.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="outro">
+      <h2><span class="h2n">07</span>Close — record last, ~40s</h2>
+      <div class="call say">
+        <span class="tag">Script beat</span>
+        <p>“Two integrations, same idea: a drop-in adapter for dbt, a drop-in plugin for Airflow, one reservation ID to turn it on, and every BigQuery job priced the cheaper way automatically. Links to both sample repos and the setup docs are below. If you want help wiring this into your own project, reach out to your Rabbit contact.”</p>
+      </div>
+      <p><strong>On screen:</strong> a recap card — <code>dbt: profiles → type: rabbitbigquery</code> · <code>Airflow: requirements-composer.txt + rabbit_api connection</code> · <code>both: reservation_ids</code>.</p>
+    </section>
+
+    <section id="edit">
+      <h2><span class="h2n">08</span>Edit &amp; publish</h2>
+      <ul class="check">
+        <li><b>Assemble</b> in take order: cold open → dbt beats → Airflow beats → close.</li>
+        <li><b>Cut the dead air</b> — every <code>dbt build</code> spinner, every DAG wait. Narrate results over a frozen frame.</li>
+        <li><b>On-screen callouts</b> highlighting the key log lines: <code>Rabbit optimization disabled</code>, <code>Rabbit optimization enabled</code>, <code>Received optimization result</code>. These are small in a terminal — box them or zoom.</li>
+        <li><b>Chapter markers</b>: 00:00 Intro · ~01:00 dbt · ~07:00 Airflow · ~13:30 Wrap-up. Put them in the description too.</li>
+        <li><b>Secret scrub</b>: scan every terminal frame for the API key, the <code>.env</code> file contents, any <code>profiles.yml</code> with a real key. Blur or re-cut.</li>
+        <li><b>Captions</b> — auto-generate, then fix "Rabbit", "BigQuery", "dbt", "Composer", reservation IDs.</li>
+        <li><b>Thumbnail</b>: the off→on log-line diff, or the dashboard savings number.</li>
+        <li><b>Description</b> with links: <code>dbt-rabbit-samples</code> repo, <code>rabbit-sample-dags</code> repo, the <a href="https://github.com/followrabbit-ai/bq-job-optimizer-dbt">dbt adapter</a> and <a href="https://github.com/followrabbit-ai/bq-job-optimizer-airflow-plugin">Airflow plugin</a> READMEs, <a href="https://app.followrabbit.ai/api-keys">api-keys</a>.</li>
+        <li><b>Publish target</b>: unlisted first, share with one colleague for a review pass, then move to the customer-facing library.</li>
+      </ul>
+    </section>
+
+    <section id="gotchas">
+      <h2><span class="h2n">09</span>Gotchas that will bite mid-recording</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td>Build passes but no routing lines</td><td><b>reservation_ids empty</b> — the deliberate no-op path, in both tools</td><td>Set <code>RABBIT_RESERVATION_IDS</code> / the <code>reservation_ids</code> list. That IS the "on" beat.</td></tr>
+            <tr><td>Composer update runs for 20 min on camera</td><td>PyPI install rebuilds the environment image</td><td>Run it the day before. Only ever <em>show</em> the command in §06.</td></tr>
+            <tr><td>Auth error partway through a take</td><td>ADC / gcloud token expired</td><td><code>gcloud auth application-default login</code> + <code>gcloud auth login</code> the morning of.</td></tr>
+            <tr><td>Dashboard shows nothing after a run</td><td>Ingestion lag — jobs take a few minutes to surface</td><td>Pre-stage earlier runs so there's always data; narrate "these are from a few minutes ago".</td></tr>
+            <tr><td>Routing decision is always on-demand (undramatic)</td><td>Sample data volumes are small; on-demand often genuinely wins</td><td>That's an honest result — say so. If you want to show a slot-based pick, use a heavier query or the bitcoin_cash pipeline.</td></tr>
+            <tr><td>API key flashes on screen</td><td><code>echo</code>, <code>cat ~/.rabbit.env</code>, or an open <code>profiles.yml</code></td><td>Source from a hidden file; reference <code>$RABBIT_API_KEY</code> only; clear scrollback between takes; blur in post.</td></tr>
+            <tr><td>DAG trigger seems to hang</td><td>Composer <code>gcloud ... run</code> is slow to return</td><td>Trigger from the Airflow UI instead, or cut to a pre-staged successful run.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="foot">Built from <code>dbt-rabbit-samples</code> @ <code>claude/rabbit-pricing-optimizer-video</code> and <code>rabbit-sample-dags</code> @ <code>main</code>. Verify reservation IDs, dataset names, and Composer env/region against your own setup before recording — placeholders here are illustrative.</p>
+
+  </main>
+</div>
+
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.rail a'));
+    var map = {};
+    links.forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if (el) map[id] = a;
+    });
+    if (!('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          var a = map[e.target.id];
+          if (a) a.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+    Object.keys(map).forEach(function (id) {
+      io.observe(document.getElementById(id));
+    });
+  })();
+</script>
