@@ -22,7 +22,7 @@ Set them on Composer with::
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow.decorators import dag
 from airflow.providers.google.cloud.operators.bigquery import (
@@ -80,7 +80,7 @@ ORDER BY ride_date
     dag_id="bigquery_elt_demo",
     description="Three-task BigQuery ELT against the austin_bikeshare public dataset.",
     schedule=None,
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     max_active_runs=1,
     default_args={

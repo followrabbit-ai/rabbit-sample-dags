@@ -24,7 +24,7 @@ Set them on Composer with::
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow.decorators import dag
 from airflow.providers.google.cloud.operators.bigquery import (
@@ -95,7 +95,7 @@ ORDER BY tx_date
         "(public dataset)."
     ),
     schedule=None,
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     max_active_runs=1,
     default_args={
